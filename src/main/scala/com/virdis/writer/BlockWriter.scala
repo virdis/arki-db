@@ -32,9 +32,22 @@ trait BlockWriter[F[_]] {
       F.flatMap(pgBuffer) {
         refBuff     => F.flatMap(F.point(data)){
           toBeAdded => refBuff.modify[Unit]{
-            bff =>(bff.put(toBeAdded), ())
+            buffer  =>(buffer.put(toBeAdded), ())
           }
         }
+      }
+
+    def nativeAddress: F[Long] =
+      F.flatMap(pgBuffer) {
+        refBuff => F.flatMap(refBuff.get) {
+          buffer => F.delay(memoryManager.getDirectBufferAddress(buffer))
+        }
+      }
+
+    def cleanUp: F[Unit] =
+      F.flatMap(nativeAddress) {
+        address =>
+          F.delay(memoryManager.freeMemory(address))
       }
   }
 
