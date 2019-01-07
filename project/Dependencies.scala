@@ -3,4 +3,6 @@ import sbt._
 object Dependencies {
   lazy val scalaTest  = "org.scalatest" %% "scalatest" % "3.0.5"
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "1.1.0"
+  lazy val jnrJffi    = "com.github.jnr" % "jnr-ffi" % "2.1.6"
+  lazy val lz4        = "org.lz4" % "lz4-java" % "1.5.0"
 }

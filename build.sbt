@@ -2,6 +2,8 @@ import Dependencies._
 
 lazy val commonDependencies = Seq(
   catsEffect,
+  jnrJffi,
+  lz4,
   scalaTest % Test
 )
 lazy val root = (project in file(".")).
@@ -12,5 +14,5 @@ lazy val root = (project in file(".")).
       version      := "0.1.0-SNAPSHOT"
     )),
     name := "arki-db",
-    libraryDependencies += commonDependencies
+    libraryDependencies ++= commonDependencies
   )
