@@ -4,7 +4,8 @@ lazy val commonDependencies = Seq(
   catsEffect,
   jnrJffi,
   lz4,
-  scalaTest % Test
+  scalaTest % Test,
+  scalaCheck % Test
 )
 lazy val root = (project in file(".")).
   settings(

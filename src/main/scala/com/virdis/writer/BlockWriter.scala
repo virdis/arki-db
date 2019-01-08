@@ -5,12 +5,11 @@ import java.nio.ByteBuffer
 
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
-import cats.instances.unit
 
-trait BlockWriter[F[_]] {
+abstract class BlockWriter[F[_]]()(implicit F: Sync[F]) {
 
   // TODO Document
-  final case class PageAligned[F[_]]()(implicit F: Sync[F]) {
+  final case class PageAligned() {
     final val pgBuffer = Ref.of[F, ByteBuffer](ByteBuffer.allocateDirect(pageSize.toInt))
 
     def debug: F[Unit] =
@@ -20,11 +19,22 @@ trait BlockWriter[F[_]] {
             F.delay(println(s"PageAligned[pgBuffer=${buffer}]"))
         }
       }
-
-    def size: F[Int] =
+    def position: F[Int] =
       F.flatMap(pgBuffer) {
         refBuff  => F.flatMap(refBuff.get) {
           buffer => F.point(buffer.position())
+        }
+      }
+    def hasRemaining: F[Boolean] =
+      F.flatMap(pgBuffer) {
+        refBuff  => F.flatMap(refBuff.get) {
+          buffer => F.point(buffer.hasRemaining)
+        }
+      }
+    def remaining: F[Int] =
+      F.flatMap(pgBuffer) {
+        refBuff  => F.flatMap(refBuff.get) {
+          buffer => F.point(buffer.remaining())
         }
       }
     // TODO : remember to flip data before calling put
@@ -42,12 +52,6 @@ trait BlockWriter[F[_]] {
         refBuff => F.flatMap(refBuff.get) {
           buffer => F.delay(memoryManager.getDirectBufferAddress(buffer))
         }
-      }
-
-    def cleanUp: F[Unit] =
-      F.flatMap(nativeAddress) {
-        address =>
-          F.delay(memoryManager.freeMemory(address))
       }
   }
 
