@@ -17,6 +17,8 @@
  *
  */
 
-package com.virdis.models
+package com.virdis.writer.Test
 
-private [models] case class RecordKey(underlying: Long) extends AnyVal
+class scaal {
+
+}
