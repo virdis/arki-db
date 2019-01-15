@@ -17,14 +17,11 @@
  *
  */
 
-package com
+package com.virdis.threadpools
 
-import com.kenai.jffi.{MemoryIO, PageManager}
-
-package object virdis {
-
-  final val memoryManager   = MemoryIO.getInstance()
-  final val pageManager     = PageManager.getInstance()
-
-  final val pageSize: Long  = pageManager.pageSize()
+object ThreadPool {
+  trait BlockingIOPool
+  trait GlobalPool
 }
+
+

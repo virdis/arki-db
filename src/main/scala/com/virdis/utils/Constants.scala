@@ -1,4 +1,3 @@
-
 /*
  *
  *     Copyright (c) 2019 Sandeep Virdi
@@ -19,21 +18,18 @@
 
 package com.virdis.utils
 
-import java.nio.ByteBuffer
-import java.util.concurrent.{Executors, ThreadFactory}
+import com.kenai.jffi.{MemoryIO, PageManager}
 
-import cats.effect.Sync
-import Constants._
+object Constants {
 
-object Utils {
 
-  // TODO document
-  def freeDirectBuffer[F[_]](nativeAddress: Long)(F: Sync[F]): F[Unit] =
-    F.delay(memoryManager.freeMemory(nativeAddress))
+  final val memoryManager       = MemoryIO.getInstance()
+  final val pageManager         = PageManager.getInstance()
 
-  def freeDirectBuffer[F[_]](buffer: ByteBuffer)(F: Sync[F]): F[Unit] =
-    F.delay {
-      val nativeAddress = memoryManager.getDirectBufferAddress(buffer)
-      memoryManager.freeMemory(nativeAddress)
-    }
+  final val PAGE_SIZE           = pageManager.pageSize()
+  final val SIXTY_FOUR_MB_BYTES = 67108864 // 64 MB
+  final val INDEX_KEY_SIZE      = 16 // KEY:ADDRESS
+  final val BLOOM_FILTER_SIZE   = 3145728 // 3MB
+  final val FOOTER_SIZE         = 47 // MIN:MAX:INDEXSTART:INDEXEND:BFSTART:BLOCKSTART
+
 }
