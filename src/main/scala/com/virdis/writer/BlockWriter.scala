@@ -94,11 +94,8 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F]) {
     val dataBuffer = ByteBuffer.allocateDirect(dataBufferSize)
     val numberOfPagesRequired = Math.ceil(dataBufferSize.toDouble / PAGE_SIZE).toInt
     val keyIterator = keySet.iterator()
-    var currentPageSize = 0
-    while(keyIterator.hasNext) {
-      val key = keyIterator.next()
-    }
-    def go(generatedKeys: java.util.Iterator[Long], noOfPage: Int, accumulator: ByteBuffer): ByteBuffer = {
+
+    def go(generatedKeys: java.util.Iterator[Long], pageNumber: Int, accumulator: ByteBuffer): (ByteBuffer, ByteBuffer) = {
       if (generatedKeys.hasNext) {
         val key = generatedKeys.next()
         val payLoadBuffer = map.get(key)
@@ -106,26 +103,42 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F]) {
         // check current bb size
         if (accumulator.position + payLoadBuffer.capacity() < PAGE_SIZE) {
           accumulator.put(payLoadBuffer)
+          // setting up index GENERATEDKEY:PAGENO:OFFSET
           indexBuffer.putLong(key)
-          indexBuffer.putLong(dataBuffer.position())
-          go(generatedKeys, noOfPage, accumulator)
+          indexBuffer.putInt(pageNumber)
+          indexBuffer.putInt(accumulator.position())
+
+          go(generatedKeys, pageNumber, accumulator)
         } else {
           accumulator.flip()
           dataBuffer.put(accumulator) // how to clean up, maybe use the same bytebuffer
-          Utils.freeDirectBuffer(accumulator)
-          val accBuffer = ByteBuffer.allocateDirect(PAGE_SIZE.toInt) // how to cleanup
-          accBuffer.put(payLoadBuffer)
+          Utils.freeDirectBuffer(accumulator)(F)
+          val newAccumulator = ByteBuffer.allocateDirect(PAGE_SIZE.toInt)
+          val newPageNumber = pageNumber + 1
+          newAccumulator.put(payLoadBuffer)
+          // setting up index GENERATEDKEY:PAGENO:OFFSET
           indexBuffer.putLong(key)
-          indexBuffer.putLong(dataBuffer.position())
-          go(generatedKeys, noOfPage, accBuffer)
+          indexBuffer.putInt(newPageNumber)
+          indexBuffer.putInt(newAccumulator.position())
+
+          go(generatedKeys, pageNumber + 1, newAccumulator)
 
         }
       } else {
-        accumulator
+        // flip
+        dataBuffer.flip()
+        indexBuffer.flip()
+        (dataBuffer, indexBuffer) // emit stats
       }
-      
+    }
+    F.flatMap(F.point(0)) {
+      i =>
+        F.delay {
+            go(keyIterator, i, ByteBuffer.allocateDirect(PAGE_SIZE.toInt))
+        }
     }
   }
+
 
 
 
