@@ -24,6 +24,7 @@ import java.nio.{Buffer, ByteBuffer}
 import com.virdis.utils.Constants._
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
+import com.virdis.models.BlockWriterResult
 import com.virdis.utils.Utils
 
 abstract class BlockWriter[F[_]]()(implicit F: Sync[F]) {
@@ -87,15 +88,20 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F]) {
 
   // TODO DRAW ASCII DIAGRAM OF BLOCK
 
-  def build(map: java.util.NavigableMap[Long, ByteBuffer], dataSize: Int) = {
+  def build(map: java.util.NavigableMap[Long, ByteBuffer]) = {
     val keySet = map.navigableKeySet()
     val indexBuffer = ByteBuffer.allocateDirect(keySet.size() * INDEX_KEY_SIZE)
     val dataBufferSize = SIXTY_FOUR_MB_BYTES - (BLOOM_FILTER_SIZE + FOOTER_SIZE + indexBuffer.capacity())
     val dataBuffer = ByteBuffer.allocateDirect(dataBufferSize)
-    val numberOfPagesRequired = Math.ceil(dataBufferSize.toDouble / PAGE_SIZE).toInt
+    val calculatedPages = Math.ceil(dataBufferSize.toDouble / PAGE_SIZE).toInt
     val keyIterator = keySet.iterator()
 
-    def go(generatedKeys: java.util.Iterator[Long], pageNumber: Int, accumulator: ByteBuffer): (ByteBuffer, ByteBuffer) = {
+    def go(
+            generatedKeys: java.util.Iterator[Long],
+            pageNumber: Int,
+            accumulator: ByteBuffer
+          ): BlockWriterResult[Int] = {
+
       if (generatedKeys.hasNext) {
         val key = generatedKeys.next()
         val payLoadBuffer = map.get(key)
@@ -111,10 +117,12 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F]) {
           go(generatedKeys, pageNumber, accumulator)
         } else {
           accumulator.flip()
-          dataBuffer.put(accumulator) // how to clean up, maybe use the same bytebuffer
+          dataBuffer.put(accumulator)
+          // Clean up
           Utils.freeDirectBuffer(accumulator)(F)
+
           val newAccumulator = ByteBuffer.allocateDirect(PAGE_SIZE.toInt)
-          val newPageNumber = pageNumber + 1
+          val newPageNumber  = pageNumber + 1
           newAccumulator.put(payLoadBuffer)
           // setting up index GENERATEDKEY:PAGENO:OFFSET
           indexBuffer.putLong(key)
@@ -125,10 +133,20 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F]) {
 
         }
       } else {
-        // flip
+        // In the previous run, we had single element in the iterator and we created a new page
+        accumulator.flip()
+        dataBuffer.put(accumulator)
+        // no more elements in the iterator, lets free last PAGE Direct Buffer
+        Utils.freeDirectBuffer(accumulator)(F)
+
         dataBuffer.flip()
         indexBuffer.flip()
-        (dataBuffer, indexBuffer) // emit stats
+        BlockWriterResult(
+          dataByteBuffer = dataBuffer,
+          indexByteBuffer =  indexBuffer,
+          calculatedPages = calculatedPages,
+          actualPages = pageNumber
+        )
       }
     }
     F.flatMap(F.point(0)) {
