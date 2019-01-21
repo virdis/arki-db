@@ -22,12 +22,13 @@ package com.virdis.writer
 import java.nio.{Buffer, ByteBuffer}
 
 import com.virdis.utils.Constants._
-import cats.effect.Sync
+import cats.effect.{ContextShift, Sync}
 import cats.effect.concurrent.Ref
 import com.virdis.models.BlockWriterResult
+import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.Utils
 
-abstract class BlockWriter[F[_]]()(implicit F: Sync[F]) {
+abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
 
   // TODO Document
   final class PageAligned() {
@@ -91,7 +92,9 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F]) {
   def build(map: java.util.NavigableMap[Long, ByteBuffer]) = {
     val keySet = map.navigableKeySet()
     val indexBuffer = ByteBuffer.allocateDirect(keySet.size() * INDEX_KEY_SIZE)
+    println(s"INDEX BUFFER=${indexBuffer}")
     val dataBufferSize = SIXTY_FOUR_MB_BYTES - (BLOOM_FILTER_SIZE + FOOTER_SIZE + indexBuffer.capacity())
+    println(s"DATA BUFFER SIZE=${dataBufferSize}")
     val dataBuffer = ByteBuffer.allocateDirect(dataBufferSize)
     val calculatedPages = Math.ceil(dataBufferSize.toDouble / PAGE_SIZE).toInt
     val keyIterator = keySet.iterator()
@@ -151,10 +154,13 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F]) {
     }
     F.flatMap(F.point(0)) {
       i =>
-        F.delay {
+        CS.evalOn(IOThreadFactory.BLOCKING_IO_POOL.executionContext){
+           F.delay {
             go(keyIterator, i, ByteBuffer.allocateDirect(PAGE_SIZE.toInt))
+          }
         }
     }
+
   }
 
 

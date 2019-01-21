@@ -21,12 +21,15 @@ package com.virdis.writer
 
 import java.nio.ByteBuffer
 
-import cats.effect.{IO, Sync}
+import cats.effect.{ContextShift, IO, Sync}
 import com.virdis.utils.Utils
 import org.scalacheck.Gen
 import cats.implicits._
 
+import scala.concurrent.ExecutionContext
+
 class PageAlignedSpec extends BaseSpec {
+  implicit val cf = IO.contextShift(scala.concurrent.ExecutionContext.global)
   class Fixture {
     val blockWriter = new BlockWriter[IO]() {}
 

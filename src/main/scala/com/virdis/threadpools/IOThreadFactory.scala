@@ -25,7 +25,7 @@ import com.virdis.threadpools.ThreadPool._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 trait IOThreadFactory[A] {
-  def createExecutionContext: ExecutionContextExecutor
+  def executionContext: ExecutionContextExecutor
 }
 
 object IOThreadFactory {
@@ -45,7 +45,7 @@ object IOThreadFactory {
       }
     }
 
-    override val createExecutionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(
+    override val executionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(
       Executors.newCachedThreadPool(
         new BlockingIOThreadFactory()
       )
@@ -54,6 +54,6 @@ object IOThreadFactory {
 
   implicit final val GLOBAL_POOL: IOThreadFactory[GlobalPool] = new IOThreadFactory[GlobalPool] {
 
-    override val createExecutionContext: ExecutionContextExecutor = ExecutionContext.global
+    override val executionContext: ExecutionContextExecutor = ExecutionContext.global
   }
 }

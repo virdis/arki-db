@@ -20,6 +20,6 @@
 
 package com.virdis.writer
 
-import org.scalatest.{ AsyncFlatSpec, FlatSpec, Matchers}
+import org.scalatest.{ AsyncFlatSpec, Matchers}
 
 class BaseSpec extends AsyncFlatSpec with Matchers

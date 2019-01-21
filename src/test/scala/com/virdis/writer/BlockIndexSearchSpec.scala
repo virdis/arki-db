@@ -19,29 +19,31 @@
 
 package com.virdis.writer
 
-import java.nio.ByteBuffer
-
 import cats.effect.IO
+import com.virdis.search.BlockIndexSearch
+import com.virdis.utils.Constants
 
-class BlockWriterSpec
-  extends BaseSpec {
+import scala.concurrent.Future
 
+class BlockIndexSearchSpec extends BaseSpec {
 
   class Fixture extends CommonFixtures {
     val bw = new BlockWriter[IO]() {}
+    val bis = new BlockIndexSearch[IO]{}
   }
-  // TODO CHANGE TEST :-)
-  it should "build and return BlockWriterResult" in {
+  it should "binarySearch IndexBuffer" in {
     val f = new Fixture
     import f._
     val map = addDataToMap
-    bw.build(map).flatMap {
-      bwRes =>
-        println(bwRes)
-      IO(bwRes)
-    }.unsafeToFuture().map {
-      b => assert(b.getClass.getSimpleName.contains("BlockWriterResult"))
+    val searchKeys = genListOfSearchKeys(100, map.size()).sample.get
+    bw.build(map).unsafeToFuture().map {
+      bwriteResult =>
+        val searchRes = searchKeys.map {
+          k =>
+            bis.binarySearch(bwriteResult.indexByteBuffer, k, Constants.INDEX_KEY_SIZE, 0, map.size()).unsafeToFuture()
+        }
+      Future.sequence(searchRes).map { r => assert(r.toSet == searchKeys.toSet) }
     }
+    assert(1==1)
   }
-
 }

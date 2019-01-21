@@ -17,3 +17,6 @@ lazy val root = (project in file(".")).
     name := "arki-db",
     libraryDependencies ++= commonDependencies
   )
+
+Test / fork := true
+Test / javaOptions += "-Xmx4G"
