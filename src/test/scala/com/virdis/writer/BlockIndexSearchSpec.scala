@@ -36,14 +36,13 @@ class BlockIndexSearchSpec extends BaseSpec {
     import f._
     val map = addDataToMap
     val searchKeys = genListOfSearchKeys(100, map.size()).sample.get
-    bw.build(map).unsafeToFuture().map {
+    bw.build(map).unsafeToFuture().flatMap {
       bwriteResult =>
         val searchRes = searchKeys.map {
           k =>
             bis.binarySearch(bwriteResult.indexByteBuffer, k, Constants.INDEX_KEY_SIZE, 0, map.size()).unsafeToFuture()
         }
-      Future.sequence(searchRes).map { r => assert(r.toSet == searchKeys.toSet) }
+        Future.sequence(searchRes).map(r => assert(r.toSet == searchKeys.toSet))
     }
-    assert(1==1)
   }
 }
