@@ -21,7 +21,9 @@ package com.virdis.threadpools
 import java.util.concurrent.{Executors, ThreadFactory}
 import java.util.concurrent.atomic.AtomicInteger
 
+import cats.effect.{ContextShift, IO}
 import com.virdis.threadpools.ThreadPool._
+
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 trait IOThreadFactory[A] {
@@ -45,15 +47,18 @@ object IOThreadFactory {
       }
     }
 
-    override val executionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(
+    override final val executionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(
       Executors.newCachedThreadPool(
         new BlockingIOThreadFactory()
       )
     )
+
+    // ContextShift Instance for this Pool
+    final val contextShift: ContextShift[IO] = IO.contextShift(executionContext)
   }
 
   implicit final val GLOBAL_POOL: IOThreadFactory[GlobalPool] = new IOThreadFactory[GlobalPool] {
 
-    override val executionContext: ExecutionContextExecutor = ExecutionContext.global
+    override final val executionContext: ExecutionContextExecutor = ExecutionContext.global
   }
 }

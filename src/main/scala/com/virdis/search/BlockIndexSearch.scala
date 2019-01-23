@@ -22,16 +22,17 @@ package com.virdis.search
 import java.nio.ByteBuffer
 
 import cats.effect.Sync
+import com.virdis.models.{Key, Offset, Page, SearchResult}
 
 abstract class BlockIndexSearch[F[_]](implicit F: Sync[F]) {
-
+  // TODO REMOVE PRINTLN
   private def binarySearchByteBuffer0(
                                searchBuffer: ByteBuffer,
                                searchKey: Long,
                                skipKeySize: Int,
                                start: Int = 0,
                                end:   Int
-): Long = {
+): SearchResult = {
     println(s"Search Key = ${searchKey}")
     var lo = start
     var hi = end - 1
@@ -40,7 +41,10 @@ abstract class BlockIndexSearch[F[_]](implicit F: Sync[F]) {
       //   println(s"Buffer Low=${lo} Buffer High=${hi}")
       val mid = (hi + lo) / 2
       // println(s"Buffer Mid=${mid}")
-      val midValue = searchBuffer.getLong(mid * skipKeySize)
+      val skip = mid * skipKeySize
+      val midValue = searchBuffer.getLong(skip)
+      val page     = searchBuffer.getInt(skip + 8)
+      val offSet   = searchBuffer.getInt(skip + 8 + 4)
       // println(s"MidValue=${midValue}")
       if (midValue < searchKey) {
         // println("Search Key Bigger")
@@ -49,10 +53,14 @@ abstract class BlockIndexSearch[F[_]](implicit F: Sync[F]) {
         //  println("Search Key Smaller")
         hi = mid - 1
       } else {
-        return midValue
+        return SearchResult(
+          key = Key(searchKey),
+          page = Page(page),
+          offSet = Offset(offSet)
+        )
       }
     }
-    midValue
+    SearchResult.NOT_FOUND
   }
 
   def binarySearch(
@@ -61,7 +69,7 @@ abstract class BlockIndexSearch[F[_]](implicit F: Sync[F]) {
                     skipKeySize: Int,
                     start: Int = 0,
                     end:   Int
-                  ): F[Long] =
+                  ): F[SearchResult] =
     F.delay(binarySearchByteBuffer0(searchBuffer, searchKey, skipKeySize, start, end))
 
 }

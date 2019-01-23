@@ -89,6 +89,7 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
 
   // TODO DRAW ASCII DIAGRAM OF BLOCK
 
+
   def build(map: java.util.NavigableMap[Long, ByteBuffer]) = {
     val keySet = map.navigableKeySet()
     val indexBuffer = ByteBuffer.allocateDirect(keySet.size() * INDEX_KEY_SIZE)
@@ -98,7 +99,6 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
     val dataBuffer = ByteBuffer.allocateDirect(dataBufferSize)
     val calculatedPages = Math.ceil(dataBufferSize.toDouble / PAGE_SIZE).toInt
     val keyIterator = keySet.iterator()
-
     def go(
             generatedKeys: java.util.Iterator[Long],
             pageNumber: Int,
@@ -111,11 +111,14 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
         payLoadBuffer.flip()
         // check current bb size
         if (accumulator.position + payLoadBuffer.capacity() < PAGE_SIZE) {
+          val payLoadOffSetInPage = accumulator.position()
           accumulator.put(payLoadBuffer)
           // setting up index GENERATEDKEY:PAGENO:OFFSET
           indexBuffer.putLong(key)
           indexBuffer.putInt(pageNumber)
-          indexBuffer.putInt(accumulator.position())
+          indexBuffer.putInt(payLoadOffSetInPage)
+          println(s"INSIDE IF KEY=${key} INDEX BUFFER=${indexBuffer} DATABUFFER=${dataBuffer}" +
+            s"CALCULATED ADDRESS=${Utils.calculatePageAddress(pageNumber, payLoadOffSetInPage)}")
 
           go(generatedKeys, pageNumber, accumulator)
         } else {
@@ -126,17 +129,21 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
 
           val newAccumulator = ByteBuffer.allocateDirect(PAGE_SIZE.toInt)
           val newPageNumber  = pageNumber + 1
+          val newPayLoadOffSetInPage = newAccumulator.position()
           newAccumulator.put(payLoadBuffer)
           // setting up index GENERATEDKEY:PAGENO:OFFSET
           indexBuffer.putLong(key)
           indexBuffer.putInt(newPageNumber)
-          indexBuffer.putInt(newAccumulator.position())
+          indexBuffer.putInt(newPayLoadOffSetInPage)
+
+          println(s"OUTSIDE IF KEY=${key} INDEX BUFFER=${indexBuffer} DATABUFFER=${dataBuffer}" +
+            s"CALCULATED ADDRESS=${Utils.calculatePageAddress(pageNumber, newPayLoadOffSetInPage)}")
 
           go(generatedKeys, pageNumber + 1, newAccumulator)
 
         }
       } else {
-        // In the previous run, we had single element in the iterator and we created a new page
+        println(s"ACCUMULATOR DETAILS==${accumulator}")
         accumulator.flip()
         dataBuffer.put(accumulator)
         // no more elements in the iterator, lets free last PAGE Direct Buffer
@@ -162,7 +169,6 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
     }
 
   }
-
 
 
 

@@ -20,8 +20,9 @@
 package com.virdis.writer
 
 import cats.effect.IO
+import com.virdis.models.{BlockWriterResult, SearchResult}
 import com.virdis.search.BlockIndexSearch
-import com.virdis.utils.Constants
+import com.virdis.utils.{Constants, Utils}
 
 import scala.concurrent.Future
 
@@ -30,8 +31,9 @@ class BlockIndexSearchSpec extends BaseSpec {
   class Fixture extends CommonFixtures {
     val bw = new BlockWriter[IO]() {}
     val bis = new BlockIndexSearch[IO]{}
+
   }
-  it should "binarySearch IndexBuffer" in {
+/*  it should "binarySearch IndexBuffer" in {
     val f = new Fixture
     import f._
     val map = addDataToMap
@@ -42,7 +44,41 @@ class BlockIndexSearchSpec extends BaseSpec {
           k =>
             bis.binarySearch(bwriteResult.indexByteBuffer, k, Constants.INDEX_KEY_SIZE, 0, map.size()).unsafeToFuture()
         }
-        Future.sequence(searchRes).map(r => assert(r.toSet == searchKeys.toSet))
+        Future.sequence(searchRes).map(r => assert(r.map(_.key.underlying).toSet === searchKeys.toSet))
     }
+  }*/
+  it should "help find data in DataBuffer" in {
+    val f = new Fixture
+    import f._
+    val map = addDataToMap
+    val searchKeys = genListOfSearchKeys(10, map.size()).sample.get
+    bw.build(map).unsafeToFuture().flatMap {
+      bwriteResult =>
+        val searchRes = searchKeys.map {
+          k =>
+            bis.binarySearch(bwriteResult.indexByteBuffer, k, Constants.INDEX_KEY_SIZE, 0, map.size()).unsafeToFuture()
+        }
+        Future.sequence(searchRes).map {
+          list =>
+            list.map {
+              searchRes =>
+                val SearchResult(key, page, offset) = searchRes
+                val calculatedAddress = Utils.calculatePageAddress(page.underlying, offset.underlying)
+
+                val _keySize = bwriteResult.dataByteBuffer.getShort(calculatedAddress)
+                val _key = bwriteResult.dataByteBuffer.getInt(calculatedAddress + Constants.SHORT_SIZE_IN_BYTES)
+                val _valueSize = bwriteResult.dataByteBuffer.getShort(calculatedAddress
+                  + Constants.SHORT_SIZE_IN_BYTES + Constants.INT_SIZE_IN_BYTES)
+                val _value = bwriteResult.dataByteBuffer.getInt(
+                  calculatedAddress + Constants.SHORT_SIZE_IN_BYTES + Constants.INT_SIZE_IN_BYTES + Constants.SHORT_SIZE_IN_BYTES
+                )
+                println(s"SEARCH RESULT=${searchRes}")
+                println(s"KEY=${_key} VALUE=${_value}")
+                println(s"Calculated Address=${calculatedAddress}")
+                (key === _key) === _value
+            }.foldLeft(true)(_ && _)
+        }.map(r => assert(r))
+    }
+
   }
 }

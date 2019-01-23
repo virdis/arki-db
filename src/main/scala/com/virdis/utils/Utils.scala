@@ -28,12 +28,17 @@ import Constants._
 object Utils {
 
   // TODO document
-  def freeDirectBuffer[F[_]](nativeAddress: Long)(F: Sync[F]): F[Unit] =
+  final def freeDirectBuffer[F[_]](nativeAddress: Long)(F: Sync[F]): F[Unit] =
     F.delay(memoryManager.freeMemory(nativeAddress))
 
-  def freeDirectBuffer[F[_]](buffer: ByteBuffer)(F: Sync[F]): F[Unit] =
+  final def freeDirectBuffer[F[_]](buffer: ByteBuffer)(F: Sync[F]): F[Unit] =
     F.delay {
       val nativeAddress = memoryManager.getDirectBufferAddress(buffer)
       memoryManager.freeMemory(nativeAddress)
     }
+
+  final def calculatePageAddress(pageNo:Int, pageOffSet: Int): Int = {
+    println( s"PAGE=${pageNo} OFFSET=${pageOffSet}" )
+    (pageNo * Constants.PAGE_SIZE.toInt) + pageOffSet
+  }
 }

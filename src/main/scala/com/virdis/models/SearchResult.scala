@@ -19,10 +19,16 @@
 
 package com.virdis.models
 
-import java.nio.ByteBuffer
+case class Key(underlying: Long) extends AnyVal
+case class Page(underlying: Int) extends AnyVal
+case class Offset(underlying: Int) extends AnyVal
 
-case class BlockWriterResult[@specialized(Int) A](
-  dataByteBuffer:  ByteBuffer,
-  indexByteBuffer: ByteBuffer,
-  calculatedPages: A,
-  actualPages: A)
+case class SearchResult(key: Key, page: Page, offSet: Offset)
+
+object SearchResult {
+  final val nfKey    = -1
+  final val nfPage   = -1
+  final val nfOffSet = -1
+
+  final val NOT_FOUND = SearchResult(Key(nfKey), Page(nfPage), Offset(nfOffSet))
+}
