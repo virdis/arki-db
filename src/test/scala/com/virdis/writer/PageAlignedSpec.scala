@@ -49,7 +49,7 @@ class PageAlignedSpec extends BaseSpec {
     }
 
     def cleanUp(address: Long) =
-      Utils.freeDirectBuffer[IO](address)(Sync[IO])
+      Utils.freeDirectBuffer[IO](address)(Sync[IO], cf)
   }
 
   it should "put data" in {

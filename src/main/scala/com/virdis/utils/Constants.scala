@@ -25,7 +25,7 @@ object Constants {
 
   final val memoryManager       = MemoryIO.getInstance()
   final val pageManager         = PageManager.getInstance()
-  final val PAGE_SIZE           = 64 //pageManager.pageSize()
+  final val PAGE_SIZE           = pageManager.pageSize()
   final val SIXTY_FOUR_MB_BYTES = 67108864 // 64 MB
   final val INDEX_KEY_SIZE      = 16 // KEY:PAGENO:OFFSET
   final val BLOOM_FILTER_SIZE   = 3145728 // 3MB

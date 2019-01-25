@@ -21,14 +21,15 @@ package com.virdis.writer
 
 import java.nio.ByteBuffer
 
-import cats.effect.IO
+import cats.effect.{ContextShift, IO}
 import com.virdis.utils.Constants._
 import org.scalacheck.Gen
 
 trait CommonFixtures {
- implicit val cf = IO.contextShift(scala.concurrent.ExecutionContext.global)
+  implicit val cf: ContextShift[IO] = IO.contextShift(scala.concurrent.ExecutionContext.global)
 
- lazy val addDataToMap: java.util.NavigableMap[Long, ByteBuffer] = CommonFixtures.generatedMap
+  lazy val addDataToMap: java.util.NavigableMap[Long, ByteBuffer] = CommonFixtures.generatedMap
+  lazy val smallData = CommonFixtures.smallDataMap
 
  def genSearchKey(upperBound: Long) = {
    Gen.choose(1, upperBound)
@@ -67,7 +68,7 @@ object CommonFixtures {
 
   val smallDataMap = {
     val map = new java.util.TreeMap[Long, ByteBuffer]
-    (1 to 10) .foreach {
+    (1 to 100) .foreach {
       i =>
         val b = ByteBuffer.allocate(2 + 4 + 2 + 4 + 1)
         b.putShort(4) // add key size

@@ -54,9 +54,9 @@ abstract class BlockIndexSearch[F[_]](implicit F: Sync[F]) {
         hi = mid - 1
       } else {
         return SearchResult(
-          key = Key(searchKey),
-          page = Page(page),
-          offSet = Offset(offSet)
+          key     = Key(searchKey),
+          page    = Page(page),
+          offSet  = Offset(offSet)
         )
       }
     }

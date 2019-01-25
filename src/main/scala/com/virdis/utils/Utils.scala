@@ -20,45 +20,39 @@
 package com.virdis.utils
 
 import java.nio.ByteBuffer
-import java.util.concurrent.{Executors, ThreadFactory}
-
-import cats.effect.Sync
+import com.virdis.threadpools.IOThreadFactory._
+import cats.effect.{ContextShift, Sync}
 import Constants._
 
 object Utils {
 
   // TODO document
-  @inline final def freeDirectBuffer[F[_]](nativeAddress: Long)(F: Sync[F]): F[Unit] =
-    F.delay(memoryManager.freeMemory(nativeAddress))
+  @inline final def freeDirectBuffer[F[_]](nativeAddress: Long)(F: Sync[F], Cs: ContextShift[F]): F[Unit] =
+    Cs.evalOn(BLOCKING_IO_POOL.executionContext)(F.delay(memoryManager.freeMemory(nativeAddress)))
 
-  final def freeDirectBuffer[F[_]](buffer: ByteBuffer)(F: Sync[F]): F[Unit] =
-    F.delay {
+  final def freeDirectBuffer[F[_]](buffer: ByteBuffer)(F: Sync[F], Cs: ContextShift[F]): F[Unit] =
+    Cs.evalOn(BLOCKING_IO_POOL.executionContext)(F.delay {
       val nativeAddress = memoryManager.getDirectBufferAddress(buffer)
       memoryManager.freeMemory(nativeAddress)
-    }
+    })
 
-  final def calculatePageAddress(pageNo:Int, pageOffSet: Int): Int = {
-    println( s"PAGE=${pageNo} OFFSET=${pageOffSet}" )
-    (pageNo * Constants.PAGE_SIZE.toInt) + pageOffSet
-  }
+  @inline final def calculatePageAddress(pageNo:Int, pageOffSet: Int): Int = (pageNo * Constants.PAGE_SIZE.toInt) + pageOffSet
+
 
   // TODO clean up Duplicate buffer
-  final def kvByteBuffers(idx: Int, dataBuffer: ByteBuffer) = {
+  final def kvByteBuffers[F[_]](idx: Int, dataBuffer: ByteBuffer)(F: Sync[F], Cs: ContextShift[F]) = {
     val duplicate = dataBuffer.duplicate()
     duplicate.position(idx)
     val keySize = duplicate.getShort
-    println(s"KEYSIZE=${keySize}")
     val key = new Array[Byte](keySize)
     duplicate.position(idx + 2)
     duplicate.get(key)
-    println(s"KEY=${key}")
     duplicate.position(idx + 2 + keySize)
     val valueSize = duplicate.getShort
-    println(s"VALUESIZE=${valueSize}")
     val value = new Array[Byte](valueSize)
     duplicate.position(idx + 2 + keySize + 2)
     duplicate.get(value)
-    println(s"VALUE=${value}")
+    freeDirectBuffer(duplicate)(F, Cs)
     (key, value)
   }
 }

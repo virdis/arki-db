@@ -26,9 +26,10 @@ import cats.effect.{ContextShift, Sync}
 import cats.effect.concurrent.Ref
 import com.virdis.models.BlockWriterResult
 import com.virdis.threadpools.IOThreadFactory
+import com.virdis.threadpools.ThreadPool.BlockingIOPool
 import com.virdis.utils.Utils
 
-abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
+abstract class BlockWriter[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]) {
 
   // TODO Document
   final class PageAligned() {
@@ -125,7 +126,7 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
           accumulator.flip()
           dataBuffer.put(accumulator)
           // Clean up
-          Utils.freeDirectBuffer(accumulator)(F)
+          Utils.freeDirectBuffer(accumulator)(F, Cs)
 
           val newAccumulator = ByteBuffer.allocateDirect(PAGE_SIZE.toInt)
           val newPageNumber  = pageNumber + 1
@@ -137,7 +138,7 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
           indexBuffer.putInt(newPayLoadOffSetInPage)
           // move DataBuffer Index to new calculated address
           dataBuffer.position(Utils.calculatePageAddress(newPageNumber, newPayLoadOffSetInPage))
-          
+
           println(s"OUTSIDE IF KEY=${key} INDEX BUFFER=${indexBuffer.position()} DATABUFFER=${dataBuffer.position()}" +
             s"CALCULATED ADDRESS=${Utils.calculatePageAddress(newPageNumber, newPayLoadOffSetInPage)}")
 
@@ -151,7 +152,7 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
         dataBuffer.put(accumulator)
         println(s"DATA BUFFER DETAILS AFTER ADDING ACC==${dataBuffer}")
         // no more elements in the iterator, lets free last PAGE Direct Buffer
-        Utils.freeDirectBuffer(accumulator)(F)
+        Utils.freeDirectBuffer(accumulator)(F, Cs)
 
         dataBuffer.flip()
         indexBuffer.flip()
@@ -165,7 +166,7 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
     }
     F.flatMap(F.point(0)) {
       i =>
-        CS.evalOn(IOThreadFactory.BLOCKING_IO_POOL.executionContext){
+        Cs.evalOn(IOThreadFactory.BLOCKING_IO_POOL.executionContext){
            F.delay {
             go(keyIterator, i, ByteBuffer.allocateDirect(PAGE_SIZE.toInt))
           }

@@ -19,7 +19,9 @@
 
 package com.virdis.writer
 
-import cats.effect.IO
+import java.nio.ByteBuffer
+
+import cats.effect.{IO, Sync}
 import com.virdis.models.{BlockWriterResult, SearchResult}
 import com.virdis.search.BlockIndexSearch
 import com.virdis.utils.{Constants, Utils}
@@ -29,7 +31,7 @@ import scala.concurrent.Future
 class BlockIndexSearchSpec extends BaseSpec {
 
   class Fixture extends CommonFixtures {
-    val bw = new BlockWriter[IO]() {}
+    val bw  = new BlockWriter[IO]() {}
     val bis = new BlockIndexSearch[IO]{}
 
   }
@@ -50,7 +52,7 @@ class BlockIndexSearchSpec extends BaseSpec {
   it should "help find data in DataBuffer" in {
     val f = new Fixture
     import f._
-    val map = addDataToMap
+    val map = smallData
     val searchKeys = genListOfSearchKeys(10, map.size()).sample.get
     bw.build(map).unsafeToFuture().flatMap {
       bwriteResult =>
@@ -64,21 +66,11 @@ class BlockIndexSearchSpec extends BaseSpec {
               searchRes =>
                 val SearchResult(key, page, offset) = searchRes
                 val calculatedAddress = Utils.calculatePageAddress(page.underlying, offset.underlying)
-
-                val _keySize = bwriteResult.dataByteBuffer.getShort(calculatedAddress)
-                val _key = bwriteResult.dataByteBuffer.getInt(calculatedAddress + Constants.SHORT_SIZE_IN_BYTES)
-                val _valueSize = bwriteResult.dataByteBuffer.getShort(calculatedAddress
-                  + Constants.SHORT_SIZE_IN_BYTES + Constants.INT_SIZE_IN_BYTES)
-                val _value = bwriteResult.dataByteBuffer.getInt(
-                  calculatedAddress + Constants.SHORT_SIZE_IN_BYTES + Constants.INT_SIZE_IN_BYTES + Constants.SHORT_SIZE_IN_BYTES
-                )
-                println(s"SEARCH RESULT=${searchRes}")
-                println(s"KEY=${_key} VALUE=${_value}")
-                println(s"Calculated Address=${calculatedAddress}")
-                (key === _key) === _value
+                val (a1,a2) = Utils.kvByteBuffers[IO](calculatedAddress, bwriteResult.dataByteBuffer)(Sync[IO], cf)
+                val _key = ByteBuffer.wrap(a1).getInt // Hard coded , we know its an INT_key === key
+                _key === key.underlying
             }.foldLeft(true)(_ && _)
         }.map(r => assert(r))
     }
-
   }
 }

@@ -19,4 +19,6 @@
 
 package com.virdis.models
 
-private [models] case class RecordKey(underlying: Long) extends AnyVal
+import java.nio.ByteBuffer
+
+case class KVByteBuffer(key: ByteBuffer, value: ByteBuffer)
