@@ -28,7 +28,7 @@ import Constants._
 object Utils {
 
   // TODO document
-  final def freeDirectBuffer[F[_]](nativeAddress: Long)(F: Sync[F]): F[Unit] =
+  @inline final def freeDirectBuffer[F[_]](nativeAddress: Long)(F: Sync[F]): F[Unit] =
     F.delay(memoryManager.freeMemory(nativeAddress))
 
   final def freeDirectBuffer[F[_]](buffer: ByteBuffer)(F: Sync[F]): F[Unit] =
@@ -40,5 +40,25 @@ object Utils {
   final def calculatePageAddress(pageNo:Int, pageOffSet: Int): Int = {
     println( s"PAGE=${pageNo} OFFSET=${pageOffSet}" )
     (pageNo * Constants.PAGE_SIZE.toInt) + pageOffSet
+  }
+
+  // TODO clean up Duplicate buffer
+  final def kvByteBuffers(idx: Int, dataBuffer: ByteBuffer) = {
+    val duplicate = dataBuffer.duplicate()
+    duplicate.position(idx)
+    val keySize = duplicate.getShort
+    println(s"KEYSIZE=${keySize}")
+    val key = new Array[Byte](keySize)
+    duplicate.position(idx + 2)
+    duplicate.get(key)
+    println(s"KEY=${key}")
+    duplicate.position(idx + 2 + keySize)
+    val valueSize = duplicate.getShort
+    println(s"VALUESIZE=${valueSize}")
+    val value = new Array[Byte](valueSize)
+    duplicate.position(idx + 2 + keySize + 2)
+    duplicate.get(value)
+    println(s"VALUE=${value}")
+    (key, value)
   }
 }

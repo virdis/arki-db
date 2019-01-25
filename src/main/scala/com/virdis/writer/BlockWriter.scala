@@ -117,7 +117,7 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
           indexBuffer.putLong(key)
           indexBuffer.putInt(pageNumber)
           indexBuffer.putInt(payLoadOffSetInPage)
-          println(s"INSIDE IF KEY=${key} INDEX BUFFER=${indexBuffer} DATABUFFER=${dataBuffer}" +
+          println(s"INSIDE IF KEY=${key} INDEX BUFFER=${indexBuffer.position()} DATABUFFER=${dataBuffer.position()}" +
             s"CALCULATED ADDRESS=${Utils.calculatePageAddress(pageNumber, payLoadOffSetInPage)}")
 
           go(generatedKeys, pageNumber, accumulator)
@@ -135,17 +135,21 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], CS: ContextShift[F]) {
           indexBuffer.putLong(key)
           indexBuffer.putInt(newPageNumber)
           indexBuffer.putInt(newPayLoadOffSetInPage)
-
-          println(s"OUTSIDE IF KEY=${key} INDEX BUFFER=${indexBuffer} DATABUFFER=${dataBuffer}" +
-            s"CALCULATED ADDRESS=${Utils.calculatePageAddress(pageNumber, newPayLoadOffSetInPage)}")
+          // move DataBuffer Index to new calculated address
+          dataBuffer.position(Utils.calculatePageAddress(newPageNumber, newPayLoadOffSetInPage))
+          
+          println(s"OUTSIDE IF KEY=${key} INDEX BUFFER=${indexBuffer.position()} DATABUFFER=${dataBuffer.position()}" +
+            s"CALCULATED ADDRESS=${Utils.calculatePageAddress(newPageNumber, newPayLoadOffSetInPage)}")
 
           go(generatedKeys, pageNumber + 1, newAccumulator)
 
         }
       } else {
         println(s"ACCUMULATOR DETAILS==${accumulator}")
+        println(s"DATA BUFFER DETAILS==${dataBuffer}")
         accumulator.flip()
         dataBuffer.put(accumulator)
+        println(s"DATA BUFFER DETAILS AFTER ADDING ACC==${dataBuffer}")
         // no more elements in the iterator, lets free last PAGE Direct Buffer
         Utils.freeDirectBuffer(accumulator)(F)
 
