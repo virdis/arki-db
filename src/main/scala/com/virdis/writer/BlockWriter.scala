@@ -119,7 +119,7 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]) {
           indexBuffer.putInt(pageNumber)
           indexBuffer.putInt(payLoadOffSetInPage)
           println(s"INSIDE IF KEY=${key} INDEX BUFFER=${indexBuffer.position()} DATABUFFER=${dataBuffer.position()}" +
-            s"CALCULATED ADDRESS=${Utils.calculatePageAddress(pageNumber, payLoadOffSetInPage)}")
+            s"CALCULATED ADDRESS=${Utils.calculateOffset0(pageNumber, payLoadOffSetInPage)}")
 
           go(generatedKeys, pageNumber, accumulator)
         } else {
@@ -137,10 +137,10 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]) {
           indexBuffer.putInt(newPageNumber)
           indexBuffer.putInt(newPayLoadOffSetInPage)
           // move DataBuffer Index to new calculated address
-          dataBuffer.position(Utils.calculatePageAddress(newPageNumber, newPayLoadOffSetInPage))
+          dataBuffer.position(Utils.calculateOffset0(newPageNumber, newPayLoadOffSetInPage))
 
           println(s"OUTSIDE IF KEY=${key} INDEX BUFFER=${indexBuffer.position()} DATABUFFER=${dataBuffer.position()}" +
-            s"CALCULATED ADDRESS=${Utils.calculatePageAddress(newPageNumber, newPayLoadOffSetInPage)}")
+            s"CALCULATED ADDRESS=${Utils.calculateOffset0(newPageNumber, newPayLoadOffSetInPage)}")
 
           go(generatedKeys, pageNumber + 1, newAccumulator)
 

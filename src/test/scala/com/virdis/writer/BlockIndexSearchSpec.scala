@@ -65,7 +65,7 @@ class BlockIndexSearchSpec extends BaseSpec {
             list.map {
               searchRes =>
                 val SearchResult(key, page, offset) = searchRes
-                val calculatedAddress = Utils.calculatePageAddress(page.underlying, offset.underlying)
+                val calculatedAddress = Utils.calculateOffset0(page.underlying, offset.underlying)
                 val (a1,a2) = Utils.kvByteBuffers[IO](calculatedAddress, bwriteResult.dataByteBuffer)(Sync[IO], cf)
                 val _key = ByteBuffer.wrap(a1).getInt // Hard coded , we know its an INT_key === key
                 _key === key.underlying

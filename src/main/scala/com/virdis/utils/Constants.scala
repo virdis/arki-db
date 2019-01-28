@@ -25,11 +25,11 @@ object Constants {
 
   final val memoryManager       = MemoryIO.getInstance()
   final val pageManager         = PageManager.getInstance()
-  final val PAGE_SIZE           = pageManager.pageSize()
+  final val PAGE_SIZE           = pageManager.pageSize().toInt
   final val SIXTY_FOUR_MB_BYTES = 67108864 // 64 MB
   final val INDEX_KEY_SIZE      = 16 // KEY:PAGENO:OFFSET
   final val BLOOM_FILTER_SIZE   = 3145728 // 3MB
-  final val FOOTER_SIZE         = 48 // MIN:MAX:INDEXSTART:INDEXEND:BFSTART:BLOCKSTART
+  final val FOOTER_SIZE         = 48 // TIMESTAMP:MIN:MAX:INDEXSTART:NUMBEROFKEYS:BFSTART:BLOCKNUMBER
 
   final val LONG_SIZE_IN_BYTES     = java.lang.Long.BYTES
   final val INT_SIZE_IN_BYTES      = java.lang.Integer.BYTES

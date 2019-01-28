@@ -19,17 +19,6 @@
 
 package com.virdis.models
 
-case class Key(underlying: Long)   extends AnyVal
-case class Page(underlying: Int)   extends AnyVal
-case class Offset(underlying: Int) extends AnyVal
+import java.nio.ByteBuffer
 
-case class SearchResult(key: Key, page: Page, offSet: Offset)
-case class IndexElement(key: Key, page: Page, offSet: Offset)
-
-object SearchResult {
-  final val nfKey    = -1
-  final val nfPage   = nfKey
-  final val nfOffSet = nfKey
-
-  final val NOT_FOUND = SearchResult(Key(nfKey), Page(nfPage), Offset(nfOffSet))
-}
+case class PayloadBuffer(key: ByteBuffer, value: ByteBuffer)

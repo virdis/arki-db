@@ -21,4 +21,9 @@ package com.virdis.models
 
 import java.nio.ByteBuffer
 
-case class KVByteBuffer(key: ByteBuffer, value: ByteBuffer)
+case class Block(
+                data:  ByteBuffer,
+                index: ByteBuffer,
+                bloomFilter: ByteBuffer,
+                footer: Footer
+                )
