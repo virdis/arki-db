@@ -35,7 +35,7 @@ class BlockIndexSearchSpec extends BaseSpec {
     val bis = new BlockIndexSearch[IO]{}
 
   }
-/*  it should "binarySearch IndexBuffer" in {
+  it should "binarySearch IndexBuffer" in {
     val f = new Fixture
     import f._
     val map = addDataToMap
@@ -48,7 +48,7 @@ class BlockIndexSearchSpec extends BaseSpec {
         }
         Future.sequence(searchRes).map(r => assert(r.map(_.key.underlying).toSet === searchKeys.toSet))
     }
-  }*/
+  }
   it should "help find data in DataBuffer" in {
     val f = new Fixture
     import f._

@@ -21,18 +21,21 @@ package com.virdis.models
 
 import java.nio.ByteBuffer
 
+import cats.effect.{ContextShift, Sync}
+import com.virdis.utils.Utils
+
 case class Block(
                 data:  ByteBuffer,
                 index: ByteBuffer,
                 bloomFilter: ByteBuffer,
                 footer: Footer
                 ) {
-  def duplicate: Block = {
-    Block(
-      data = data.duplicate(),
-      index = index.duplicate(),
-      bloomFilter = bloomFilter,
-      footer = footer
-    )
+
+  def clean[F[_]]()(implicit F: Sync[F],
+                    Cs: ContextShift[F]) = {
+    Utils.freeDirectBuffer[F](data)(F, Cs)
+    Utils.freeDirectBuffer[F](index)(F, Cs)
+    Utils.freeDirectBuffer[F](bloomFilter)(F, Cs)
   }
+
 }

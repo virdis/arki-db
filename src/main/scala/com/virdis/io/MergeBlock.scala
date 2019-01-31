@@ -31,6 +31,7 @@ abstract class MergeBlock[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]){
 
   final def payloadByteBuffers(
      idx: Index,
+     generatedKey: Long,
      dataBuffer: ByteBuffer
      ): PayloadBuffer = {
     // dont duplicate the buffer we need to move the data buffer pointers
@@ -48,7 +49,6 @@ abstract class MergeBlock[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]){
     dataBuffer.get(value)
     // Since byte buffer is backed by arrays no need to flip
     val keyBuff      = ByteBuffer.wrap(key)
-    val generatedKey = keyBuff.duplicate().getLong
     val valueBuff    = ByteBuffer.wrap(value)
     val payload      = ByteBuffer.allocate(keyBuff.capacity() + valueBuff.capacity())
     payload.put(keyBuff)
@@ -84,11 +84,11 @@ abstract class MergeBlock[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]){
 
       while (b1.index.hasRemaining &&  b2.index.hasRemaining) {
         val ielement1: IndexElement = payloadOffSet(b1.index)
-        val ielement2: IndexElement = payloadOffSet( b2.index)
+        val ielement2: IndexElement = payloadOffSet(b2.index)
         val dataOffSet1 = Utils.calculateOffset(ielement1)
         val dataOffSet2 = Utils.calculateOffset(ielement2)
-        val payload1: PayloadBuffer = payloadByteBuffers(Index(dataOffSet1), b1.data)
-        val payload2: PayloadBuffer = payloadByteBuffers(Index(dataOffSet2),  b2.data)
+        val payload1: PayloadBuffer = payloadByteBuffers(Index(dataOffSet1), ielement1.key.underlying, b1.data)
+        val payload2: PayloadBuffer = payloadByteBuffers(Index(dataOffSet2), ielement2.key.underlying, b2.data)
 
         if (payload1.key != payload2.key) {
           currentTotal += payload1.sizeInBytes
@@ -107,18 +107,20 @@ abstract class MergeBlock[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]){
       while (b1.index.hasRemaining) {
         val ielement1   = payloadOffSet(b1.index)
         val dataOffSet1 = Utils.calculateOffset(ielement1)
-        val payload1    = payloadByteBuffers(Index(dataOffSet1), b1.data)
+        val payload1    = payloadByteBuffers(Index(dataOffSet1), ielement1.key.underlying, b1.data)
         currentTotal += payload1.sizeInBytes
         mergeBlockResult.add(payload1, calculateFlag(payload1, currentTotal))
       }
       while (b2.index.hasRemaining) {
         val ielement2   = payloadOffSet( b2.index)
         val dataOffSet2 = Utils.calculateOffset(ielement2)
-        val payload2    = payloadByteBuffers(Index(dataOffSet2),  b2.data)
+        val payload2    = payloadByteBuffers(Index(dataOffSet2), ielement2.key.underlying, b2.data)
         currentTotal += payload2.sizeInBytes
         mergeBlockResult.add(payload2, calculateFlag(payload2, currentTotal))
       }
+
     mergeBlockResult
   }
+
 
 }
