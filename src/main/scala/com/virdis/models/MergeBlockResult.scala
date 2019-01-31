@@ -20,19 +20,16 @@
 package com.virdis.models
 
 import java.nio.ByteBuffer
+import java.util
 
-case class Block(
-                data:  ByteBuffer,
-                index: ByteBuffer,
-                bloomFilter: ByteBuffer,
-                footer: Footer
-                ) {
-  def duplicate: Block = {
-    Block(
-      data = data.duplicate(),
-      index = index.duplicate(),
-      bloomFilter = bloomFilter,
-      footer = footer
-    )
+class MergeBlockResult {
+  val map1: java.util.TreeMap[Long, ByteBuffer] = new util.TreeMap()
+  val map2: java.util.TreeMap[Long, ByteBuffer] = new util.TreeMap()
+
+  def add(payloadBuffer: PayloadBuffer, flag: Boolean) = {
+    if (flag) map1.put(payloadBuffer.key, payloadBuffer.payload)
+    else map2.put(payloadBuffer.key, payloadBuffer.payload)
+
   }
+
 }

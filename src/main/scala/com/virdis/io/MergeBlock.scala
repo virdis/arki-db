@@ -20,6 +20,7 @@
 package com.virdis.io
 
 import java.nio.ByteBuffer
+import java.util
 
 import cats.effect.{ContextShift, Sync}
 import com.virdis.models._
@@ -28,7 +29,7 @@ import Constants._
 
 abstract class MergeBlock[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]){
 
-  def payloadByteBuffers(
+  final def payloadByteBuffers(
      idx: Index,
      dataBuffer: ByteBuffer
      ): PayloadBuffer = {
@@ -36,6 +37,8 @@ abstract class MergeBlock[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]){
     dataBuffer.position(idx.underlying)
     val keySize = dataBuffer.getShort
     val key     = new Array[Byte](keySize)
+    // TODO :: Even though we have Index value class,
+    //  arithmetic makes Boxing an issue, maybe specialize
     dataBuffer.position(idx.underlying + 2)
     dataBuffer.get(key)
     dataBuffer.position(idx.underlying + 2 + keySize)
@@ -44,67 +47,78 @@ abstract class MergeBlock[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]){
     dataBuffer.position(idx.underlying + 2 + keySize + 2)
     dataBuffer.get(value)
     // Since byte buffer is backed by arrays no need to flip
-    PayloadBuffer(ByteBuffer.wrap(key), ByteBuffer.wrap(value))
+    val keyBuff      = ByteBuffer.wrap(key)
+    val generatedKey = keyBuff.duplicate().getLong
+    val valueBuff    = ByteBuffer.wrap(value)
+    val payload      = ByteBuffer.allocate(keyBuff.capacity() + valueBuff.capacity())
+    payload.put(keyBuff)
+    payload.put(valueBuff)
+    payload.flip() // ready to use
+    PayloadBuffer(generatedKey, payload)
   }
 
   //INDEX : KEY:PAGENO:OFFSET
-  @inline def payloadOffSet(index: ByteBuffer): IndexElement =
+  @inline final def payloadOffSet(index: ByteBuffer): IndexElement =
     IndexElement(
       key    = Key(index.getLong()),
       page   = Page(index.getInt()),
       offSet = Offset(index.getInt())
     )
 
-  def compareKeys(p1: PayloadBuffer, p2: PayloadBuffer) = {
-    val keyBuff1 = p1.key.duplicate()
-    val keyBuff2 = p2.key.duplicate()
-    val key1 = keyBuff1.getLong
-    val key2 = keyBuff2.getLong
-    Utils.freeDirectBuffer(keyBuff1)(F, Cs)
-    Utils.freeDirectBuffer(keyBuff2)(F, Cs)
-    key1.compareTo(key2)
+  @inline final def compareKeys(p1: PayloadBuffer, p2: PayloadBuffer): Int = p1.key.compareTo(p2.key)
+
+  @inline final def compareTs(ts1: Long, ts2: Long, p1: PayloadBuffer, p2: PayloadBuffer): PayloadBuffer = {
+    if (ts1 > ts2) p1 else p2
   }
 
-  def merge(b1: Block, b2: Block): List[Block] = {
-    val indexBuffer = collection.mutable.ListBuffer[ByteBuffer]
-    val dataBuffer  = collection.mutable.ListBuffer[ByteBuffer]
+  @inline def calculateFlag(payloadBuffer: PayloadBuffer, total: Int): Boolean =
+    SIXTY_FOUR_MB_BYTES - (BLOOM_FILTER_SIZE + FOOTER_SIZE) > total
 
-    def go(
-          b1: Block,
-          b2: Block,
-          pageNumber: Int,
-          noOfKeys: Int,
-          dataCounter: Int,
-          accumulator: ByteBuffer
-          ): ByteBuffer = {
+  final def merge(
+             b1: Block,
+             b2: Block,
+           ): MergeBlockResult = {
 
-      if(b1.index.hasRemaining && b2.index.hasRemaining){
-        val ielement1 = payloadOffSet(b1.index)
-        val ielement2 = payloadOffSet(b2.index)
+      var currentTotal = 0
+      val mergeBlockResult = new MergeBlockResult()
+
+      while (b1.index.hasRemaining &&  b2.index.hasRemaining) {
+        val ielement1: IndexElement = payloadOffSet(b1.index)
+        val ielement2: IndexElement = payloadOffSet( b2.index)
         val dataOffSet1 = Utils.calculateOffset(ielement1)
         val dataOffSet2 = Utils.calculateOffset(ielement2)
-        val payload1 = payloadByteBuffers(Index(dataOffSet1), b1.data)
-        val payload2 = payloadByteBuffers(Index(dataOffSet2), b2.data)
-        val compare  = compareKeys(payload1, payload2)
-        if(compare == -1) {
-          //payload1 is smaller
-        } else if (compare == 1) {
-          //payload1 is bigger
+        val payload1: PayloadBuffer = payloadByteBuffers(Index(dataOffSet1), b1.data)
+        val payload2: PayloadBuffer = payloadByteBuffers(Index(dataOffSet2),  b2.data)
+
+        if (payload1.key != payload2.key) {
+          currentTotal += payload1.sizeInBytes
+          mergeBlockResult.add(payload1, calculateFlag(payload1, currentTotal))
+          currentTotal += payload2.sizeInBytes
+          mergeBlockResult.add(payload2, calculateFlag(payload2, currentTotal))
         } else {
-
+          val payload = compareTs(
+            b1.footer.timeStamp.underlying,
+            b2.footer.timeStamp.underlying,
+            payload1, payload2)
+          currentTotal += payload.sizeInBytes
+          mergeBlockResult.add(payload, calculateFlag(payload, currentTotal))
         }
-      } else if (b1.index.hasRemaining) {
-
-      } else if (b2.index.hasRemaining) {
-
       }
-
-
-      ???
-    }
-    // call go method with duplicate ByteBuffers
-    // make sure to flip them
-    ???
+      while (b1.index.hasRemaining) {
+        val ielement1   = payloadOffSet(b1.index)
+        val dataOffSet1 = Utils.calculateOffset(ielement1)
+        val payload1    = payloadByteBuffers(Index(dataOffSet1), b1.data)
+        currentTotal += payload1.sizeInBytes
+        mergeBlockResult.add(payload1, calculateFlag(payload1, currentTotal))
+      }
+      while (b2.index.hasRemaining) {
+        val ielement2   = payloadOffSet( b2.index)
+        val dataOffSet2 = Utils.calculateOffset(ielement2)
+        val payload2    = payloadByteBuffers(Index(dataOffSet2),  b2.data)
+        currentTotal += payload2.sizeInBytes
+        mergeBlockResult.add(payload2, calculateFlag(payload2, currentTotal))
+      }
+    mergeBlockResult
   }
 
 }
