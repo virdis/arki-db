@@ -24,14 +24,16 @@ import java.nio.ByteBuffer
 import cats.effect.{IO, Sync}
 import com.virdis.models.{BlockWriterResult, SearchResult}
 import com.virdis.search.BlockIndexSearch
-import com.virdis.utils.{Constants, Utils}
+import com.virdis.utils.Tags.{Default, Test}
+import com.virdis.utils.{Config, Constants, Utils}
 
 import scala.concurrent.Future
 
 class BlockIndexSearchSpec extends BaseSpec {
 
   class Fixture extends CommonFixtures {
-    val bw  = new BlockWriter[IO]() {}
+    val config = implicitly[Config[Default]]
+    val bw  = new BlockWriter[IO](config) {}
     val bis = new BlockIndexSearch[IO]{}
 
   }
@@ -65,7 +67,7 @@ class BlockIndexSearchSpec extends BaseSpec {
             list.map {
               searchRes =>
                 val SearchResult(key, page, offset) = searchRes
-                val calculatedAddress = Utils.calculateOffset0(page.underlying, offset.underlying)
+                val calculatedAddress = Utils.calculateOffset0(page.underlying, offset.underlying, config.pageSize)
                 val (a1,a2) = Utils.kvByteBuffers[IO](calculatedAddress, bwriteResult.dataByteBuffer)(Sync[IO], cf)
                 val _key = ByteBuffer.wrap(a1).getInt // Hard coded , we know its an INT_key === key
                 _key === key.underlying

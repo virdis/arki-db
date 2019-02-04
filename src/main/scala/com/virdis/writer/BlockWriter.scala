@@ -27,9 +27,10 @@ import cats.effect.concurrent.Ref
 import com.virdis.models.BlockWriterResult
 import com.virdis.threadpools.IOThreadFactory
 import com.virdis.threadpools.ThreadPool.BlockingIOPool
-import com.virdis.utils.Utils
+import com.virdis.utils.Tags.MyConfig
+import com.virdis.utils.{Config, Utils}
 
-abstract class BlockWriter[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]) {
+abstract class BlockWriter[F[_]](config: Config[MyConfig])(implicit F: Sync[F], Cs: ContextShift[F]) {
 
   // TODO Document
   final class PageAligned() {
@@ -93,12 +94,12 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]) {
 
   def build(map: java.util.NavigableMap[Long, ByteBuffer]) = {
     val keySet = map.navigableKeySet()
-    val indexBuffer = ByteBuffer.allocateDirect(keySet.size() * INDEX_KEY_SIZE)
+    val indexBuffer = ByteBuffer.allocateDirect(keySet.size() * config.indexKeySize)
     println(s"INDEX BUFFER=${indexBuffer}")
-    val dataBufferSize = SIXTY_FOUR_MB_BYTES - (BLOOM_FILTER_SIZE + FOOTER_SIZE + indexBuffer.capacity())
+    val dataBufferSize = config.blockSize - (config.bloomFilterSize + config.footerSize + indexBuffer.capacity())
     println(s"DATA BUFFER SIZE=${dataBufferSize}")
     val dataBuffer = ByteBuffer.allocateDirect(dataBufferSize)
-    val calculatedPages = Math.ceil(dataBufferSize.toDouble / PAGE_SIZE).toInt
+    val calculatedPages = Math.ceil(dataBufferSize.toDouble / config.pageSize).toInt
     val keyIterator = keySet.iterator()
     def go(
             generatedKeys: java.util.Iterator[Long],
@@ -111,7 +112,7 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]) {
         val payLoadBuffer = map.get(key)
         payLoadBuffer.flip()
         // check current bb size
-        if (accumulator.position + payLoadBuffer.capacity() < PAGE_SIZE) {
+        if (accumulator.position + payLoadBuffer.capacity() < config.pageSize) {
           val payLoadOffSetInPage = accumulator.position()
           accumulator.put(payLoadBuffer)
           // setting up index GENERATEDKEY:PAGENO:OFFSET
@@ -119,7 +120,7 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]) {
           indexBuffer.putInt(pageNumber)
           indexBuffer.putInt(payLoadOffSetInPage)
           println(s"INSIDE IF KEY=${key} INDEX BUFFER=${indexBuffer.position()} DATABUFFER=${dataBuffer.position()}" +
-            s"CALCULATED ADDRESS=${Utils.calculateOffset0(pageNumber, payLoadOffSetInPage)}")
+            s"CALCULATED ADDRESS=${Utils.calculateOffset0(pageNumber, payLoadOffSetInPage, config.pageSize)}")
 
           go(generatedKeys, pageNumber, accumulator)
         } else {
@@ -128,7 +129,7 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]) {
           // Clean up
           Utils.freeDirectBuffer(accumulator)(F, Cs)
 
-          val newAccumulator = ByteBuffer.allocateDirect(PAGE_SIZE.toInt)
+          val newAccumulator = ByteBuffer.allocateDirect(config.pageSize)
           val newPageNumber  = pageNumber + 1
           val newPayLoadOffSetInPage = newAccumulator.position()
           newAccumulator.put(payLoadBuffer)
@@ -137,10 +138,10 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]) {
           indexBuffer.putInt(newPageNumber)
           indexBuffer.putInt(newPayLoadOffSetInPage)
           // move DataBuffer Index to new calculated address
-          dataBuffer.position(Utils.calculateOffset0(newPageNumber, newPayLoadOffSetInPage))
+          dataBuffer.position(Utils.calculateOffset0(newPageNumber, newPayLoadOffSetInPage, config.pageSize))
 
           println(s"OUTSIDE IF KEY=${key} INDEX BUFFER=${indexBuffer.position()} DATABUFFER=${dataBuffer.position()}" +
-            s"CALCULATED ADDRESS=${Utils.calculateOffset0(newPageNumber, newPayLoadOffSetInPage)}")
+            s"CALCULATED ADDRESS=${Utils.calculateOffset0(newPageNumber, newPayLoadOffSetInPage, config.pageSize)}")
 
           go(generatedKeys, pageNumber + 1, newAccumulator)
 
@@ -168,7 +169,7 @@ abstract class BlockWriter[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]) {
       i =>
         Cs.evalOn(IOThreadFactory.BLOCKING_IO_POOL.executionContext){
            F.delay {
-            go(keyIterator, i, ByteBuffer.allocateDirect(PAGE_SIZE.toInt))
+            go(keyIterator, i, ByteBuffer.allocateDirect(config.pageSize))
           }
         }
     }

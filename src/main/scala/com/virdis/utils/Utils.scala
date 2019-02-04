@@ -38,9 +38,11 @@ object Utils {
       memoryManager.freeMemory(nativeAddress)
     })
 
-  @inline final def calculateOffset0(pageNo:Int, pageOffSet: Int): Int = (pageNo * Constants.PAGE_SIZE.toInt) + pageOffSet
+  @inline final def calculateOffset0(pageNo:Int, pageOffSet: Int, pageSize: Int): Int =
+    (pageNo * pageSize) + pageOffSet
 
-  @inline final def calculateOffset(indexElement: IndexElement): Int = calculateOffset0(indexElement.page.underlying, indexElement.offSet.underlying)
+  @inline final def calculateOffset(indexElement: IndexElement, pageSize: Int): Int =
+    calculateOffset0(indexElement.page.underlying, indexElement.offSet.underlying, pageSize)
 
   // TODO clean up Duplicate buffer
   final def kvByteBuffers[F[_]](idx: Int, dataBuffer: ByteBuffer)(F: Sync[F], Cs: ContextShift[F]) = {

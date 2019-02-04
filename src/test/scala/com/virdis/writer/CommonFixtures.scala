@@ -22,6 +22,7 @@ package com.virdis.writer
 import java.nio.ByteBuffer
 
 import cats.effect.{ContextShift, IO}
+import com.virdis.models._
 import com.virdis.utils.Constants._
 import org.scalacheck.Gen
 
@@ -37,6 +38,20 @@ trait CommonFixtures {
  def genListOfSearchKeys(noOfKeys: Int, upBound: Long) = {
    Gen.listOfN[Long](noOfKeys, genSearchKey(upBound))
  }
+  def genFooter: Gen[Footer] = {
+    for {
+      gTs     <- Gen.chooseNum[Long](Long.MinValue, Long.MaxValue)
+      gMax    <- Gen.chooseNum[Long](Long.MinValue, Long.MaxValue)
+      gMin    <- Gen.chooseNum(Long.MinValue, Long.MaxValue).suchThat(_ < gMax)
+      gIdxOff <- Gen.chooseNum(Long.MinValue, Long.MaxValue)
+      gKysIdx <- Gen.chooseNum(Int.MinValue, Int.MaxValue)
+      gbfOff  <- Gen.chooseNum(Long.MinValue, Long.MaxValue)
+      gblckNo <- Gen.choose(Int.MinValue, Int.MaxValue)
+    } yield Footer(
+      timeStamp = Ts(gTs), minKey = MinKey(gMin), maxKey = MaxKey(gMax), indexStartOffSet = IndexStartOffSet(gIdxOff),
+      noOfKeysInIndex = NoOfKeysInIndex(gKysIdx), bfilterStartOffset = BFilterStartOffset(gbfOff), blockNumber = BlockNumber(gblckNo)
+    )
+  }
 
 }
 
@@ -60,15 +75,34 @@ object CommonFixtures {
       val payload = (2 * INT_SIZE_IN_BYTES) + (2 * SHORT_SIZE_IN_BYTES) + BYTE_SIZE_IN_BYTES
       totalCount += LONG_SIZE_IN_BYTES + payload + INDEX_KEY_SIZE // KEY:VALUE:INDEXKEYSIZE
     }
-    println(s"ALLOWED SIZE=${allowedSize}")
-    println(s"TOTAL BYTES ADDED TO MAP SIZE=${totalCount} BYTES")
-    println(s"MAP DETAILS NUMBER OF KEYS=${map.size()}")
+
     map
   }
 
   val smallDataMap = {
     val map = new java.util.TreeMap[Long, ByteBuffer]
     (1 to 100) .foreach {
+      i =>
+        val b = ByteBuffer.allocate(2 + 4 + 2 + 4 + 1)
+        b.putShort(4) // add key size
+        b.putInt(i) // add key
+        b.putShort(4) // add value size
+        b.putInt(i) // add value
+        b.put(0.toByte) // isDeleted
+        map.put(i, b)
+    }
+    map
+  }
+
+  // Map based on test config values
+  def testConfigMap(isEven: Boolean) = {
+    val nums = if (isEven) {
+      (0 to 100).filter(i => i % 2 == 0).takeWhile(i => i <= 26)
+    } else {
+      (0 to 100).filter(i => i % 2 != 0).takeWhile(i => i <= 26)
+    }
+    val map = new java.util.TreeMap[Long, ByteBuffer]
+    nums .foreach {
       i =>
         val b = ByteBuffer.allocate(2 + 4 + 2 + 4 + 1)
         b.putShort(4) // add key size

@@ -22,16 +22,18 @@ package com.virdis.writer
 import java.nio.ByteBuffer
 
 import cats.effect.{ContextShift, IO, Sync}
-import com.virdis.utils.Utils
+import com.virdis.utils.{Config, Utils}
 import org.scalacheck.Gen
 import cats.implicits._
+import com.virdis.utils.Tags.Test
 
 import scala.concurrent.ExecutionContext
 
 class PageAlignedSpec extends BaseSpec {
   implicit val cf = IO.contextShift(scala.concurrent.ExecutionContext.global)
   class Fixture {
-    val blockWriter = new BlockWriter[IO]() {}
+    val config = implicitly[Config[Test]]
+    val blockWriter = new BlockWriter[IO](config) {}
 
     def genLong =
       for {

@@ -22,19 +22,23 @@ package com.virdis.writer
 import java.nio.ByteBuffer
 
 import cats.effect.IO
+import com.virdis.utils.Config
+import com.virdis.utils.Config._
+import com.virdis.utils.Tags.{Default, Test}
 
 class BlockWriterSpec
   extends BaseSpec {
 
 
   class Fixture extends CommonFixtures {
-    val bw = new BlockWriter[IO]() {}
+    val config = implicitly[Config[Default]]
+    val bw = new BlockWriter[IO](config) {}
   }
   // TODO CHANGE TEST :-)
   it should "build and return BlockWriterResult" in {
     val f = new Fixture
     import f._
-    val map = addDataToMap
+    val map = smallData
     bw.build(map).flatMap {
       bwRes =>
         println(bwRes)

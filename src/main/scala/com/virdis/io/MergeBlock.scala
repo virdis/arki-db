@@ -24,10 +24,13 @@ import java.util
 
 import cats.effect.{ContextShift, Sync}
 import com.virdis.models._
-import com.virdis.utils.{Constants, Utils}
+import com.virdis.utils.{Config, Constants, Utils}
 import Constants._
+import com.virdis.utils.Tags.MyConfig
 
-abstract class MergeBlock[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]){
+abstract class MergeBlock[F[_]](
+  final val config: Config[MyConfig]
+ )(implicit F: Sync[F], Cs: ContextShift[F]){
 
   final def payloadByteBuffers(
      idx: Index,
@@ -72,7 +75,7 @@ abstract class MergeBlock[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]){
   }
 
   @inline def calculateFlag(payloadBuffer: PayloadBuffer, total: Int): Boolean =
-    SIXTY_FOUR_MB_BYTES - (BLOOM_FILTER_SIZE + FOOTER_SIZE) > total
+    config.blockSize - (config.bloomFilterSize + config.footerSize) > total
 
   final def merge(
              b1: Block,
@@ -85,8 +88,8 @@ abstract class MergeBlock[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]){
       while (b1.index.hasRemaining &&  b2.index.hasRemaining) {
         val ielement1: IndexElement = payloadOffSet(b1.index)
         val ielement2: IndexElement = payloadOffSet(b2.index)
-        val dataOffSet1 = Utils.calculateOffset(ielement1)
-        val dataOffSet2 = Utils.calculateOffset(ielement2)
+        val dataOffSet1 = Utils.calculateOffset(ielement1, config.pageSize)
+        val dataOffSet2 = Utils.calculateOffset(ielement2, config.pageSize)
         val payload1: PayloadBuffer = payloadByteBuffers(Index(dataOffSet1), ielement1.key.underlying, b1.data)
         val payload2: PayloadBuffer = payloadByteBuffers(Index(dataOffSet2), ielement2.key.underlying, b2.data)
 
@@ -106,14 +109,14 @@ abstract class MergeBlock[F[_]]()(implicit F: Sync[F], Cs: ContextShift[F]){
       }
       while (b1.index.hasRemaining) {
         val ielement1   = payloadOffSet(b1.index)
-        val dataOffSet1 = Utils.calculateOffset(ielement1)
+        val dataOffSet1 = Utils.calculateOffset(ielement1, config.pageSize)
         val payload1    = payloadByteBuffers(Index(dataOffSet1), ielement1.key.underlying, b1.data)
         currentTotal += payload1.sizeInBytes
         mergeBlockResult.add(payload1, calculateFlag(payload1, currentTotal))
       }
       while (b2.index.hasRemaining) {
         val ielement2   = payloadOffSet( b2.index)
-        val dataOffSet2 = Utils.calculateOffset(ielement2)
+        val dataOffSet2 = Utils.calculateOffset(ielement2, config.pageSize)
         val payload2    = payloadByteBuffers(Index(dataOffSet2), ielement2.key.underlying, b2.data)
         currentTotal += payload2.sizeInBytes
         mergeBlockResult.add(payload2, calculateFlag(payload2, currentTotal))
