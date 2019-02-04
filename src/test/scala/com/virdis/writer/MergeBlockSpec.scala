@@ -24,7 +24,7 @@ import java.nio.ByteBuffer
 import cats.effect.IO
 import com.sun.xml.internal.ws.encoding.MtomCodec.ByteArrayBuffer
 import com.virdis.io.MergeBlock
-import com.virdis.models.{Block, Index}
+import com.virdis.models._
 import com.virdis.utils.Config
 import org.scalacheck.Gen
 import com.virdis.utils.Config._
@@ -85,8 +85,9 @@ class MergeBlockSpec extends BaseSpec {
     val evenMap = CommonFixtures.testConfigMap(true)
     println(s"EVEN MAP=${evenMap}")
     val evenBlockWRes = bw.build(evenMap)
-    val footer1 = genFooter
-    val footer2 = genFooter
+    val dummyFooter = Footer(
+      Ts(1L), MinKey(1L), MaxKey(1L), IndexStartOffSet(1L), NoOfKeysInIndex(1), BFilterStartOffset(1L), BlockNumber(0)
+    )
     oddBlockWRes.flatMap {
       oddBlockWR =>
         evenBlockWRes.flatMap {
@@ -95,14 +96,14 @@ class MergeBlockSpec extends BaseSpec {
               oddBlockWR.dataByteBuffer,
               oddBlockWR.indexByteBuffer,
               ByteBuffer.allocate(0),
-              footer1.sample.get
+              dummyFooter
             )
 
             val evenBlock = Block(
               evenBlockWR.dataByteBuffer,
               evenBlockWR.indexByteBuffer,
               ByteBuffer.allocate(0),
-              footer2.sample.get
+              dummyFooter
             )
             val mergeBlockResult = mg.merge(oddBlock, evenBlock)
             val map1 = mergeBlockResult.map1
