@@ -24,7 +24,7 @@ import java.nio.ByteBuffer
 import com.virdis.threadpools.IOThreadFactory._
 import cats.effect.{ContextShift, Sync}
 import Constants._
-import com.virdis.models.IndexElement
+import com.virdis.models.{IndexElement, Pages}
 
 object Utils {
 
@@ -59,5 +59,11 @@ object Utils {
     duplicate.get(value)
     freeDirectBuffer(duplicate)(F, Cs)
     (key, value)
+  }
+
+  def pagesCleanUp[F[_]](p: Pages)(F: Sync[F], C: ContextShift[F])= {
+    //TODO change so that we dont exhaust the IO Thread pool
+    // Traverse and free with single IO
+    p.pages.foreach(pg => freeDirectBuffer(pg)(F, C))
   }
 }

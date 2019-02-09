@@ -21,4 +21,13 @@ package com.virdis.models
 
 import java.nio.ByteBuffer
 
-case class BlockWriterResult(val pages: Pages, indexByteBuffer: IndexByteBuffer)
+
+case class IndexByteBuffer(val byteBuffer: ByteBuffer) extends AnyVal {
+  def getIndexElement = {
+    val key    = byteBuffer.getLong
+    val page   = byteBuffer.getInt
+    val offSet = byteBuffer.getInt
+    (Key(key), Page(page), Offset(offSet))
+  }
+}
+

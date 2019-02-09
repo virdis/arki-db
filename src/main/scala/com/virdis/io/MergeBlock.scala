@@ -38,6 +38,8 @@ abstract class MergeBlock[F[_]](
      dataBuffer: ByteBuffer
      ): PayloadBuffer = {
     // dont duplicate the buffer we need to move the data buffer pointers
+    println(s"DATABUFFER+${dataBuffer}")
+    println(s"IDX=${idx}")
     dataBuffer.position(idx.underlying)
     val keySize = dataBuffer.getShort
     val key     = new Array[Byte](keySize)
@@ -47,6 +49,7 @@ abstract class MergeBlock[F[_]](
     dataBuffer.get(key)
     dataBuffer.position(idx.underlying + 2 + keySize)
     val valueSize = dataBuffer.getShort
+    println(s"VALUESIZE=${valueSize}")
     val value     = new Array[Byte](valueSize)
     dataBuffer.position(idx.underlying + 2 + keySize + 2)
     dataBuffer.get(value)
@@ -61,12 +64,16 @@ abstract class MergeBlock[F[_]](
   }
 
   //INDEX : KEY:PAGENO:OFFSET
-  @inline final def payloadOffSet(index: ByteBuffer): IndexElement =
-    IndexElement(
-      key    = Key(index.getLong()),
-      page   = Page(index.getInt()),
+  @inline final def payloadOffSet(index: ByteBuffer): IndexElement = {
+    println(s"INDEX BUFFER=${index}")
+    val i = IndexElement(
+      key = Key(index.getLong()),
+      page = Page(index.getInt()),
       offSet = Offset(index.getInt())
     )
+    println(s"INDEX ELEMENT=${i}")
+    i
+  }
 
   @inline final def compareKeys(p1: PayloadBuffer, p2: PayloadBuffer): Int = p1.key.compareTo(p2.key)
 
@@ -87,9 +94,12 @@ abstract class MergeBlock[F[_]](
 
       while (b1.index.hasRemaining &&  b2.index.hasRemaining) {
         val ielement1: IndexElement = payloadOffSet(b1.index)
+        println(s"IELEMENT1=${ielement1}")
         val ielement2: IndexElement = payloadOffSet(b2.index)
+        println(s"IELEMENT2=${ielement2}")
         val dataOffSet1 = Utils.calculateOffset(ielement1, config.pageSize)
         val dataOffSet2 = Utils.calculateOffset(ielement2, config.pageSize)
+        println(s"DATAOFFSET 1=${dataOffSet1} DATAOFFSET 2=${dataOffSet2}")
         val payload1: PayloadBuffer = payloadByteBuffers(Index(dataOffSet1), ielement1.key.underlying, b1.data)
         val payload2: PayloadBuffer = payloadByteBuffers(Index(dataOffSet2), ielement2.key.underlying, b2.data)
 
@@ -115,7 +125,7 @@ abstract class MergeBlock[F[_]](
         mergeBlockResult.add(payload1, calculateFlag(payload1, currentTotal))
       }
       while (b2.index.hasRemaining) {
-        val ielement2   = payloadOffSet( b2.index)
+        val ielement2   = payloadOffSet(b2.index)
         val dataOffSet2 = Utils.calculateOffset(ielement2, config.pageSize)
         val payload2    = payloadByteBuffers(Index(dataOffSet2), ielement2.key.underlying, b2.data)
         currentTotal += payload2.sizeInBytes

@@ -55,6 +55,7 @@ final class Config[+T](
   def intSizeInBytes: Int    = Constants.INT_SIZE_IN_BYTES
   def shortSizeInBytes: Int  = Constants.SHORT_SIZE_IN_BYTES
   def byteSizeInBytes: Int   = Constants.BYTE_SIZE_IN_BYTES
+
 }
 
 object Config {

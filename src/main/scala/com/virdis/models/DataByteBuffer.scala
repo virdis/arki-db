@@ -17,35 +17,18 @@
  *
  */
 
-package com.virdis.writer
+package com.virdis.models
 
 import java.nio.ByteBuffer
 
-import cats.effect.IO
-import com.virdis.utils.Config
-import com.virdis.utils.Config._
-import com.virdis.utils.Tags.{Default, Test}
-
-class BlockWriterSpec
-  extends BaseSpec {
-
-
-  class Fixture extends CommonFixtures {
-    val config = implicitly[Config[Default]]
-    val bw = new BlockWriter[IO](config) {}
+case class DataByteBuffer(val byteBuffer: ByteBuffer) extends AnyVal {
+  def getDataBufferElement = {
+    val keySize = byteBuffer.getShort
+    val key = new Array[Byte](keySize)
+    byteBuffer.get(key)
+    val valueSize = byteBuffer.getShort
+    val value = new Array[Byte](valueSize)
+    byteBuffer.get(value)
+    ByteBuffer.wrap(key++value)
   }
-  // TODO CHANGE TEST :-)
-  it should "build and return BlockWriterResult" in {
-    val f = new Fixture
-    import f._
-    val map = smallData
-    bw.build(map).flatMap {
-      bwRes =>
-        println(bwRes)
-      IO(bwRes)
-    }.unsafeToFuture().map {
-      b => assert(b.getClass.getSimpleName.contains("BlockWriterResult"))
-    }
-  }
-
 }
