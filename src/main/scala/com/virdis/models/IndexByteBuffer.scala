@@ -21,13 +21,25 @@ package com.virdis.models
 
 import java.nio.ByteBuffer
 
+import com.virdis.utils.Constants
 
-case class IndexByteBuffer(val byteBuffer: ByteBuffer) extends AnyVal {
-  def getIndexElement = {
+
+final case class IndexByteBuffer(val byteBuffer: ByteBuffer) extends AnyVal {
+  // We dont create a duplicate since we want the internal Buffer counters to increment
+  def getIndexElement: (Key, Page, Offset) = {
     val key    = byteBuffer.getLong
     val page   = byteBuffer.getInt
     val offSet = byteBuffer.getInt
     (Key(key), Page(page), Offset(offSet))
   }
+
+  @inline def checkBounds: Boolean = byteBuffer.position() + Constants.INDEX_KEY_SIZE < byteBuffer.capacity()
+
+  def add(key: Key, page: Page, offset: Offset) = {
+    byteBuffer.putLong(key.underlying)
+    byteBuffer.putInt(page.underlying)
+    byteBuffer.putInt(offset.underlying)
+  }
+
 }
 

@@ -25,16 +25,16 @@ import cats.effect.{ContextShift, Sync}
 import com.virdis.utils.Utils
 
 case class Block(
-                data:  ByteBuffer,
-                index: ByteBuffer,
+                data:  DataByteBuffer,
+                index: IndexByteBuffer,
                 bloomFilter: ByteBuffer,
                 footer: Footer
                 ) {
 
   def clean[F[_]]()(implicit F: Sync[F],
                     Cs: ContextShift[F]) = {
-    Utils.freeDirectBuffer[F](data)(F, Cs)
-    Utils.freeDirectBuffer[F](index)(F, Cs)
+    Utils.freeDirectBuffer[F](data.underlying)(F, Cs)
+    Utils.freeDirectBuffer[F](index.byteBuffer)(F, Cs)
     Utils.freeDirectBuffer[F](bloomFilter)(F, Cs)
   }
 

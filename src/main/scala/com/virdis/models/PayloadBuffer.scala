@@ -20,9 +20,10 @@
 package com.virdis.models
 
 import java.nio.ByteBuffer
-import com.virdis.utils.Constants.LONG_SIZE_IN_BYTES
 
-case class PayloadBuffer(key: Long, payload: ByteBuffer) {
-  final val sizeInBytes = LONG_SIZE_IN_BYTES + payload.capacity()
-}
+/**
+  * Represents KEYSIZE:KEY:VALUESIZE:VALUE:DELETED
+  * @param payload
+  */
+final case class PayloadBuffer(payload: ByteBuffer) extends AnyVal
 

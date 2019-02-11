@@ -24,7 +24,7 @@ import java.nio.ByteBuffer
 import com.virdis.threadpools.IOThreadFactory._
 import cats.effect.{ContextShift, Sync}
 import Constants._
-import com.virdis.models.{IndexElement, Pages}
+import com.virdis.models.{IndexElement, Offset, Page, Pages}
 
 object Utils {
 
@@ -38,11 +38,7 @@ object Utils {
       memoryManager.freeMemory(nativeAddress)
     })
 
-  @inline final def calculateOffset0(pageNo:Int, pageOffSet: Int, pageSize: Int): Int =
-    (pageNo * pageSize) + pageOffSet
-
-  @inline final def calculateOffset(indexElement: IndexElement, pageSize: Int): Int =
-    calculateOffset0(indexElement.page.underlying, indexElement.offSet.underlying, pageSize)
+  @inline final def calculateOffset(page: Page, offSet: Offset, pageSize: Int): Int = (page.underlying * pageSize) + offSet.underlying
 
   // TODO clean up Duplicate buffer
   final def kvByteBuffers[F[_]](idx: Int, dataBuffer: ByteBuffer)(F: Sync[F], Cs: ContextShift[F]) = {

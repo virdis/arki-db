@@ -21,14 +21,23 @@ package com.virdis.models
 
 import java.nio.ByteBuffer
 
-case class DataByteBuffer(val byteBuffer: ByteBuffer) extends AnyVal {
-  def getDataBufferElement = {
-    val keySize = byteBuffer.getShort
+final case class DataByteBuffer(val underlying: ByteBuffer) extends AnyVal {
+  def getDataBufferElement(idx: Int) = {
+    underlying.position(idx)
+    val keySize = underlying.getShort
     val key = new Array[Byte](keySize)
-    byteBuffer.get(key)
-    val valueSize = byteBuffer.getShort
+    underlying.get(key)
+    val valueSize = underlying.getShort
     val value = new Array[Byte](valueSize)
-    byteBuffer.get(value)
-    ByteBuffer.wrap(key++value)
+    underlying.get(value)
+    val isDelete = underlying.get()
+    val byteBuffer = ByteBuffer.allocate(5 + keySize + valueSize)
+    byteBuffer.putShort(keySize)
+    byteBuffer.put(key)
+    byteBuffer.putShort(valueSize)
+    byteBuffer.put(value)
+    byteBuffer.put(isDelete)
+    byteBuffer.flip()
+    PayloadBuffer(byteBuffer)
   }
 }

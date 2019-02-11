@@ -21,8 +21,9 @@ package com.virdis.models
 
 import java.nio.ByteBuffer
 
-class Pages(val size: Int, val pageSize: Int) {
+final class Pages(val size: Int, val pageSize: Int) {
   private var _currentPageNo = 0
+
   val pages = new Array[ByteBuffer](size)
   (0 until size).foldLeft(pages) {
     (b, i) =>
@@ -38,14 +39,18 @@ class Pages(val size: Int, val pageSize: Int) {
     }
   }
 
+  /**
+    * This should never go over size since when building a block its
+    * we will be less than the maxAllowedBlockSize
+    */
   @inline def incrementPageNo: Unit = _currentPageNo += + 1
-  @inline def getPageNo: Int     = _currentPageNo
-  @inline def getPosition: Int   = pages(getPageNo).position()
+  @inline def getPageNo: Int        = _currentPageNo
+  @inline def getPosition: Int      = pages(getPageNo).position()
 
-  def add(payload: ByteBuffer): (Page,Offset) = {
-    val pgNumber = calculatePageNo(payload.capacity())
+  def add(pb: PayloadBuffer): (Page,Offset) = {
+    val pgNumber = calculatePageNo(pb.payload.capacity())
     val currentOffset = getPosition
-    pages(pgNumber).put(payload)
+    pages(pgNumber).put(pb.payload)
     (Page(pgNumber), Offset(currentOffset))
   }
 

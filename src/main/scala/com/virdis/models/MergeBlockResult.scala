@@ -19,17 +19,32 @@
 
 package com.virdis.models
 
+
 import java.nio.ByteBuffer
-import java.util
 
-class MergeBlockResult {
-  val map1: java.util.TreeMap[Long, ByteBuffer] = new util.TreeMap()
-  val map2: java.util.TreeMap[Long, ByteBuffer] = new util.TreeMap()
+import com.virdis.utils.Config
+import com.virdis.utils.Tags.MyConfig
 
-  def add(payloadBuffer: PayloadBuffer, flag: Boolean) = {
-    if (flag) map1.put(payloadBuffer.key, payloadBuffer.payload)
-    else map2.put(payloadBuffer.key, payloadBuffer.payload)
+final class MergeBlockResult(config: Config[MyConfig]) {
+  var currentTotal = 0
+  // lets over allocate data buffer and index
+  val pages1: Pages           = new Pages(config.pagesFromAllowBlockSize, config.pageSize)
+  val pages2: Pages           = new Pages(config.pagesFromAllowBlockSize, config.pageSize)
+  val index1: IndexByteBuffer = new IndexByteBuffer(ByteBuffer.allocateDirect(config.maxAllowedBlockSize / 2))
+  val index2: IndexByteBuffer = new IndexByteBuffer(ByteBuffer.allocateDirect(config.maxAllowedBlockSize / 2))
 
+  def add(key: Key, payloadBuffer: PayloadBuffer) = {
+    if (switchPages(payloadBuffer)) {
+      val (page, offset) = pages1.add(payloadBuffer)
+      index1.add(key, page, offset)
+    } else {
+      val (page, offset) = pages2.add(payloadBuffer)
+      index2.add(key, page, offset)
+    }
+    currentTotal += payloadBuffer.payload.capacity() + config.indexKeySize
   }
+
+  @inline def switchPages(payloadBuffer: PayloadBuffer): Boolean =
+     currentTotal + payloadBuffer.payload.capacity() + config.indexKeySize < config.maxAllowedBlockSize
 
 }

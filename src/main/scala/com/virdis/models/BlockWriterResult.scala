@@ -19,6 +19,4 @@
 
 package com.virdis.models
 
-import java.nio.ByteBuffer
-
 case class BlockWriterResult(val pages: Pages, indexByteBuffer: IndexByteBuffer)
