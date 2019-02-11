@@ -24,21 +24,26 @@ import java.nio.ByteBuffer
 import com.virdis.utils.Constants
 
 
-final case class IndexByteBuffer(val byteBuffer: ByteBuffer) extends AnyVal {
+final class IndexByteBuffer(val underlying: ByteBuffer) {
+  private var _counter = 0
   // We dont create a duplicate since we want the internal Buffer counters to increment
   def getIndexElement: (Key, Page, Offset) = {
-    val key    = byteBuffer.getLong
-    val page   = byteBuffer.getInt
-    val offSet = byteBuffer.getInt
+    val key    = underlying.getLong
+    val page   = underlying.getInt
+    val offSet = underlying.getInt
     (Key(key), Page(page), Offset(offSet))
   }
 
-  @inline def checkBounds: Boolean = byteBuffer.position() + Constants.INDEX_KEY_SIZE < byteBuffer.capacity()
+  @inline def checkBounds: Boolean = underlying.position() + Constants.INDEX_KEY_SIZE < underlying.capacity()
+  @inline def getCounter = _counter
+  @inline def incrementCounter = _counter = getCounter + 1
+
 
   def add(key: Key, page: Page, offset: Offset) = {
-    byteBuffer.putLong(key.underlying)
-    byteBuffer.putInt(page.underlying)
-    byteBuffer.putInt(offset.underlying)
+    underlying.putLong(key.underlying)
+    underlying.putInt(page.underlying)
+    underlying.putInt(offset.underlying)
+    incrementCounter
   }
 
 }

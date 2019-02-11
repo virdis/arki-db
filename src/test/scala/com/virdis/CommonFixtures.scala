@@ -1,4 +1,3 @@
-
 /*
  *
  *     Copyright (c) 2019 Sandeep Virdi
@@ -17,7 +16,7 @@
  *
  */
 
-package com.virdis.writer
+package com.virdis
 
 import java.nio.ByteBuffer
 import java.util
@@ -25,17 +24,12 @@ import java.util
 import cats.effect.{ContextShift, IO}
 import com.virdis.models._
 import com.virdis.utils.Config
-import com.virdis.utils.Constants._
 import com.virdis.utils.Tags.Test
 import org.scalacheck.Gen
-
-import scala.util.Random
 
 trait CommonFixtures {
   implicit val cf: ContextShift[IO] = IO.contextShift(scala.concurrent.ExecutionContext.global)
   val testConfig = implicitly[Config[Test]]
-  lazy val addDataToMap: java.util.NavigableMap[Long, ByteBuffer] = CommonFixtures.generatedMap
-  lazy val smallData = CommonFixtures.smallDataMap
 
  def genSearchKey(upperBound: Long) = {
    Gen.choose(1, upperBound)
@@ -115,65 +109,4 @@ trait CommonFixtures {
 
 }
 
-object CommonFixtures {
-
-  // Let's build this once
-  def generatedMap = {
-    var totalCount = 0
-    val allowedSize = SIXTY_FOUR_MB_BYTES - (BLOOM_FILTER_SIZE + FOOTER_SIZE)
-    val map = new java.util.TreeMap[Long, ByteBuffer]
-    var data = 1
-    while (totalCount < allowedSize) {
-      val b = ByteBuffer.allocate(2 + 4 + 2 + 4 + 1) //KEYSIZE:KEY:VALUESIZE:VALUE:ISDELETED
-      b.putShort(4) // add key size
-      b.putInt(data) // add key
-      b.putShort(4) // add value size
-      b.putInt(data) // add value
-      b.put(0.toByte) // isDeleted
-      map.put(data, b)
-      data += 1
-      // KEYSIZE(SMALLINT):KEY:VALUESIZE(SMALLINT):VALUE:ISDELETED
-      val payload = (2 * INT_SIZE_IN_BYTES) + (2 * SHORT_SIZE_IN_BYTES) + BYTE_SIZE_IN_BYTES
-      totalCount += payload + INDEX_KEY_SIZE
-    }
-
-    map
-  }
-
-  val smallDataMap = {
-    val map = new java.util.TreeMap[Long, ByteBuffer]
-    (1 to 100) .foreach {
-      i =>
-        val b = ByteBuffer.allocate(2 + 4 + 2 + 4 + 1)
-        b.putShort(4) // add key size
-        b.putInt(i) // add key
-        b.putShort(4) // add value size
-        b.putInt(i) // add value
-        b.put(0.toByte) // isDeleted
-        map.put(i, b)
-    }
-    map
-  }
-
-  // Map based on test config values
-  def fixedKeyValueMap(isEven: Boolean): util.TreeMap[Long, ByteBuffer] = {
-    val nums = if (isEven) {
-      (0 to 100).filter(i => i % 2 == 0).take(13)
-    } else {
-      (0 to 100).filter(i => i % 2 != 0).take(13)
-    }
-    val map = new java.util.TreeMap[Long, ByteBuffer]
-    nums .foreach {
-      i =>
-        val b = ByteBuffer.allocate(2 + 4 + 2 + 4 + 1)
-        b.putShort(4) // add key size
-        b.putInt(i) // add key
-        b.putShort(4) // add value size
-        b.putInt(i) // add value
-        b.put(0.toByte) // isDeleted
-        map.put(i, b)
-    }
-    map
-  }
-
-}
+object commonF extends CommonFixtures

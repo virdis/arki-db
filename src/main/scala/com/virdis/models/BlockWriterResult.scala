@@ -19,4 +19,4 @@
 
 package com.virdis.models
 
-case class BlockWriterResult(val pages: Pages, indexByteBuffer: IndexByteBuffer)
+case class BlockWriterResult(pages: Pages, indexByteBuffer: IndexByteBuffer)

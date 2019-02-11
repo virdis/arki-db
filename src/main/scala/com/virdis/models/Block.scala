@@ -34,7 +34,7 @@ case class Block(
   def clean[F[_]]()(implicit F: Sync[F],
                     Cs: ContextShift[F]) = {
     Utils.freeDirectBuffer[F](data.underlying)(F, Cs)
-    Utils.freeDirectBuffer[F](index.byteBuffer)(F, Cs)
+    Utils.freeDirectBuffer[F](index.underlying)(F, Cs)
     Utils.freeDirectBuffer[F](bloomFilter)(F, Cs)
   }
 

@@ -32,7 +32,7 @@ trait IOThreadFactory[A] {
 
 object IOThreadFactory {
 
-  implicit final val BLOCKING_IO_POOL: IOThreadFactory[BlockingIOPool] = new IOThreadFactory[BlockingIOPool] {
+  implicit final val blockingIOPool: IOThreadFactory[BlockingIOPool] = new IOThreadFactory[BlockingIOPool] {
 
     final class BlockingIOThreadFactory() extends ThreadFactory {
       private final val poolNumber = new AtomicInteger(1)

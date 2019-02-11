@@ -24,16 +24,20 @@ import java.nio.ByteBuffer
 import com.virdis.threadpools.IOThreadFactory._
 import cats.effect.{ContextShift, Sync}
 import Constants._
+import cats.{Applicative, Traverse}
 import com.virdis.models.{IndexElement, Offset, Page, Pages}
+import cats.syntax.traverse
+import cats.implicits._
+import com.virdis.threadpools.IOThreadFactory
 
 object Utils {
 
   // TODO document
   @inline final def freeDirectBuffer[F[_]](nativeAddress: Long)(F: Sync[F], Cs: ContextShift[F]): F[Unit] =
-    Cs.evalOn(BLOCKING_IO_POOL.executionContext)(F.delay(memoryManager.freeMemory(nativeAddress)))
+    Cs.evalOn(blockingIOPool.executionContext)(F.delay(memoryManager.freeMemory(nativeAddress)))
 
   final def freeDirectBuffer[F[_]](buffer: ByteBuffer)(F: Sync[F], Cs: ContextShift[F]): F[Unit] =
-    Cs.evalOn(BLOCKING_IO_POOL.executionContext)(F.delay {
+    Cs.evalOn(blockingIOPool.executionContext)(F.delay {
       val nativeAddress = memoryManager.getDirectBufferAddress(buffer)
       memoryManager.freeMemory(nativeAddress)
     })
@@ -57,9 +61,10 @@ object Utils {
     (key, value)
   }
 
-  def pagesCleanUp[F[_]](p: Pages)(F: Sync[F], C: ContextShift[F])= {
-    //TODO change so that we dont exhaust the IO Thread pool
-    // Traverse and free with single IO
-    p.pages.foreach(pg => freeDirectBuffer(pg)(F, C))
+  def pagesCleanUp[F[_]](p: Pages)
+      (F: Sync[F], C: ContextShift[F], T: Traverse[List], G: Applicative[F])= {
+    T.sequence {
+      p.pages.toList.map{ (bb: ByteBuffer) => freeDirectBuffer[F](bb)(F,C)}
+    }(G)
   }
 }

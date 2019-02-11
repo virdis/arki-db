@@ -1,5 +1,4 @@
 
-
 /*
  *
  *     Copyright (c) 2019 Sandeep Virdi
@@ -18,8 +17,26 @@
  *
  */
 
-package com.virdis.writer
+package com.virdis.models
 
-import org.scalatest.{Assertions, AsyncFlatSpec, Matchers}
+import java.nio.ByteBuffer
 
-class BaseSpec extends AsyncFlatSpec with Matchers with Assertions
+import com.virdis.BaseSpec
+
+import scala.concurrent.Future
+
+class PagesSpec extends BaseSpec {
+
+  it should "calcualte pageno" in {
+    val p = new Pages(3, 32)
+    Future {p.calculatePageNo(35)}.map(i => assert(i === 1))
+  }
+  it should "add payload buffer" in {
+    val p = new Pages(3, 32)
+    val pb = PayloadBuffer(ByteBuffer.allocate(31))
+    Future{p.add(pb)}.map
+    { case(p,off) =>
+      assert(p === Page(0) && off === Offset(0))
+    }
+  }
+}

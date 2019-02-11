@@ -31,9 +31,9 @@ final class Pages(val size: Int, val pageSize: Int) {
       b
   }
 
-  def calculatePageNo(size: Int): Int = {
+  def calculatePageNo(payloadSize: Int): Int = {
     val currentSize = getPosition
-    if (currentSize + size < pageSize) getPageNo else {
+    if (currentSize + payloadSize < pageSize) getPageNo else {
       incrementPageNo
       getPageNo
     }
@@ -47,9 +47,17 @@ final class Pages(val size: Int, val pageSize: Int) {
   @inline def getPageNo: Int        = _currentPageNo
   @inline def getPosition: Int      = pages(getPageNo).position()
 
+  /**
+    * This method returns the current Page where the
+    * [[PayloadBuffer]] was added and the [[Offset]] in the page
+    * BEFORE the [[PayloadBuffer]] was added.
+    * @param pb [[PayloadBuffer]]
+    * @return [[Page]] , [[Offset]]
+    */
   def add(pb: PayloadBuffer): (Page,Offset) = {
     val pgNumber = calculatePageNo(pb.payload.capacity())
     val currentOffset = getPosition
+    pb.payload.flip()
     pages(pgNumber).put(pb.payload)
     (Page(pgNumber), Offset(currentOffset))
   }

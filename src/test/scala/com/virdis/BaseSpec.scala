@@ -1,4 +1,5 @@
 
+
 /*
  *
  *     Copyright (c) 2019 Sandeep Virdi
@@ -17,6 +18,8 @@
  *
  */
 
-package com.virdis.models
+package com.virdis
 
-case class Index(underlying: Int) extends AnyVal
+import org.scalatest.{AsyncFlatSpec, Matchers}
+
+class BaseSpec extends AsyncFlatSpec with Matchers

@@ -24,6 +24,7 @@ import java.nio.ByteBuffer
 import cats.effect.{ContextShift, Sync}
 import com.virdis.models._
 import com.virdis.threadpools.IOThreadFactory
+import com.virdis.threadpools.ThreadPool.BlockingIOPool
 import com.virdis.utils.{Config, Utils}
 import com.virdis.utils.Tags.MyConfig
 
@@ -34,8 +35,8 @@ class BlockWriter[F[_]](config: Config[MyConfig])(
   private def build0(map: java.util.NavigableMap[Long, PayloadBuffer])= {
     val keySet          = map.navigableKeySet()
     val iterator        = keySet.iterator()
-    val indexBuffer     = IndexByteBuffer(ByteBuffer.allocateDirect(keySet.size() * config.indexKeySize))
-    val dataBufferSize  = config.blockSize - (config.bloomFilterSize + config.footerSize + indexBuffer.byteBuffer.capacity())
+    val indexBuffer     = new IndexByteBuffer(ByteBuffer.allocateDirect(keySet.size() * config.indexKeySize))
+    val dataBufferSize  = config.blockSize - (config.bloomFilterSize + config.footerSize + indexBuffer.underlying.capacity())
     val dataBuffer      = ByteBuffer.allocateDirect(dataBufferSize)
     val calculatedPages = Math.floor(dataBufferSize.toDouble / config.pageSize).toInt
     val pages           = new Pages(calculatedPages, config.pageSize)
@@ -50,32 +51,32 @@ class BlockWriter[F[_]](config: Config[MyConfig])(
     BlockWriterResult(pages, indexBuffer)
   }
 
-  def build(map: java.util.NavigableMap[Long, PayloadBuffer]) = {
-    C.evalOn(IOThreadFactory.BLOCKING_IO_POOL.executionContext)(F.delay(build0(map)))
+  def build(map: java.util.NavigableMap[Long, PayloadBuffer])() = {
+    C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(F.delay(build0(map)))
   }
 
 
   /////////////////////////////////////////////////////
 
-  def merge(block1: Block, block2: Block) = {
+  def merge0(block1: Block, block2: Block) = {
     val idx1 = block1.index
     val idx2 = block2.index
     val db1  = block1.data
     val db2  = block2.data
     val mg   = new MergeBlockResult(config)
     while(
-      idx1.byteBuffer.hasRemaining
-      && idx2.byteBuffer.hasRemaining
+      idx1.underlying.hasRemaining
+      && idx2.underlying.hasRemaining
       && idx1.checkBounds
       && idx2.checkBounds
     ){
 
       val (key1, page1, offset1) = idx1.getIndexElement
       val (key2, page2, offset2) = idx2.getIndexElement
-      val position1: Int = Utils.calculateOffset(page1, offset1, config.pageSize)
-      val position2: Int = Utils.calculateOffset(page2, offset2, config.pageSize)
-      val pb1: PayloadBuffer = db1.getDataBufferElement(position1)
-      val pb2: PayloadBuffer = db2.getDataBufferElement(position2)
+      val position1: Int         = Utils.calculateOffset(page1, offset1, config.pageSize)
+      val position2: Int         = Utils.calculateOffset(page2, offset2, config.pageSize)
+      val pb1: PayloadBuffer     = db1.getDataBufferElement(position1)
+      val pb2: PayloadBuffer     = db2.getDataBufferElement(position2)
       if (key1.underlying < key2.underlying) {
         mg.add(key1, pb1)
         mg.add(key2, pb2)
@@ -88,18 +89,21 @@ class BlockWriter[F[_]](config: Config[MyConfig])(
         mg.add(key2, pb2)
       }
     }
-    while(idx1.byteBuffer.hasRemaining && idx1.checkBounds) {
+    while(idx1.underlying.hasRemaining && idx1.checkBounds) {
       val (key1, page1, offset1) = idx1.getIndexElement
-      val position1: Int = Utils.calculateOffset(page1, offset1, config.pageSize)
-      val pb1: PayloadBuffer = db1.getDataBufferElement(position1)
+      val position1: Int         = Utils.calculateOffset(page1, offset1, config.pageSize)
+      val pb1: PayloadBuffer     = db1.getDataBufferElement(position1)
       mg.add(key1, pb1)
     }
-    while(idx2.byteBuffer.hasRemaining && idx2.checkBounds){
+    while(idx2.underlying.hasRemaining && idx2.checkBounds){
       val (key2, page2, offset2) = idx2.getIndexElement
-      val position2: Int = Utils.calculateOffset(page2, offset2, config.pageSize)
-      val pb2: PayloadBuffer = db2.getDataBufferElement(position2)
+      val position2: Int         = Utils.calculateOffset(page2, offset2, config.pageSize)
+      val pb2: PayloadBuffer     = db2.getDataBufferElement(position2)
       mg.add(key2, pb2)
     }
+    mg
   }
 
+  def merge(b1: Block, b2: Block) =
+    C.evalOn(IOThreadFactory.blockingIOPool.executionContext){ F.delay(merge0(b1, b2)) }
 }
