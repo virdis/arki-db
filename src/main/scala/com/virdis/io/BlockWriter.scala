@@ -43,7 +43,6 @@ class BlockWriter[F[_]](config: Config[MyConfig])(
     while(iterator.hasNext) {
       val key: Long = iterator.next()
       val pb: PayloadBuffer = map.get(key)
-      pb.payload.flip()
       // we dont need bound check here since the map will be under maxAllowedBlockSize
       val (page,offSet) = pages.add(pb)
       indexBuffer.add(Key(key), page, offSet)
@@ -61,48 +60,62 @@ class BlockWriter[F[_]](config: Config[MyConfig])(
   def merge0(block1: Block, block2: Block) = {
     val idx1 = block1.index
     val idx2 = block2.index
-    val db1  = block1.data
-    val db2  = block2.data
-    val mg   = new MergeBlockResult(config)
-    while(
+    val db1 = block1.data
+    val db2 = block2.data
+    val mg = new MergeBlockResult(config)
+    while (
       idx1.underlying.hasRemaining
-      && idx2.underlying.hasRemaining
-      && idx1.checkBounds
-      && idx2.checkBounds
-    ){
+        && idx2.underlying.hasRemaining
+        && idx1.checkBounds
+        && idx2.checkBounds
+    ) {
+      compareKeysAndAdd(idx1, idx2, db1, db2, mg, block1.footer, block2.footer)
 
-      val (key1, page1, offset1) = idx1.getIndexElement
-      val (key2, page2, offset2) = idx2.getIndexElement
-      val position1: Int         = Utils.calculateOffset(page1, offset1, config.pageSize)
-      val position2: Int         = Utils.calculateOffset(page2, offset2, config.pageSize)
-      val pb1: PayloadBuffer     = db1.getDataBufferElement(position1)
-      val pb2: PayloadBuffer     = db2.getDataBufferElement(position2)
-      if (key1.underlying < key2.underlying) {
-        mg.add(key1, pb1)
-        mg.add(key2, pb2)
-      } else if (key1.underlying > key2.underlying) {
-        mg.add(key2, pb2)
-        mg.add(key1, pb1)
-      } else if (block1.footer.timeStamp.underlying < block2.footer.timeStamp.underlying){ // check timestamp
-        mg.add(key1, pb1)
-      } else {
-        mg.add(key2, pb2)
+      while (idx1.underlying.hasRemaining && idx1.checkBounds) {
+        add(idx1, db1, mg)
       }
+      while (idx2.underlying.hasRemaining && idx2.checkBounds) {
+        add(idx2, db2, mg)
+      }
+      mg
     }
-    while(idx1.underlying.hasRemaining && idx1.checkBounds) {
-      val (key1, page1, offset1) = idx1.getIndexElement
-      val position1: Int         = Utils.calculateOffset(page1, offset1, config.pageSize)
-      val pb1: PayloadBuffer     = db1.getDataBufferElement(position1)
+  }
+
+  def add(idx: IndexByteBuffer, db: DataByteBuffer, mg: MergeBlockResult) = {
+    val (key2, page2, offset2) = idx.getIndexElement
+    val position2: Int = Utils.calculateOffset(page2, offset2, config.pageSize)
+    val pb2: PayloadBuffer = db.getDataBufferElement(position2)
+    mg.add(key2, pb2)
+  }
+
+  def compareKeysAndAdd(
+                     idx1: IndexByteBuffer,
+                     idx2: IndexByteBuffer,
+                     db1: DataByteBuffer,
+                     db2: DataByteBuffer,
+                     mg: MergeBlockResult,
+                     footer1: Footer,
+                     footer2: Footer
+                   ) = {
+    val (key1, page1, offset1) = idx1.getIndexElement
+    val (key2, page2, offset2) = idx2.getIndexElement
+    val position1: Int = Utils.calculateOffset(page1, offset1, config.pageSize)
+    val position2: Int = Utils.calculateOffset(page2, offset2, config.pageSize)
+    val pb1: PayloadBuffer = db1.getDataBufferElement(position1)
+    val pb2: PayloadBuffer = db2.getDataBufferElement(position2)
+    if (key1.underlying < key2.underlying) {
       mg.add(key1, pb1)
-    }
-    while(idx2.underlying.hasRemaining && idx2.checkBounds){
-      val (key2, page2, offset2) = idx2.getIndexElement
-      val position2: Int         = Utils.calculateOffset(page2, offset2, config.pageSize)
-      val pb2: PayloadBuffer     = db2.getDataBufferElement(position2)
+      mg.add(key2, pb2)
+    } else if (key1.underlying > key2.underlying) {
+      mg.add(key2, pb2)
+      mg.add(key1, pb1)
+    } else if (footer1.timeStamp.underlying < footer1.timeStamp.underlying) { // check timestamp
+      mg.add(key1, pb1)
+    } else {
       mg.add(key2, pb2)
     }
-    mg
   }
+
 
   def merge(b1: Block, b2: Block) =
     C.evalOn(IOThreadFactory.blockingIOPool.executionContext){ F.delay(merge0(b1, b2)) }
