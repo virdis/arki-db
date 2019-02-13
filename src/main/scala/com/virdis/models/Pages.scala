@@ -20,7 +20,7 @@
 package com.virdis.models
 
 import java.nio.ByteBuffer
-
+// should validate inputs???
 final class Pages(val size: Int, val pageSize: Int) {
   private var _currentPageNo = 0
 
@@ -33,7 +33,7 @@ final class Pages(val size: Int, val pageSize: Int) {
 
   def calculatePageNo(payloadSize: Int): Int = {
     val currentSize = getPosition
-    if (currentSize + payloadSize < pageSize) getPageNo else {
+    if (currentSize + payloadSize <= pageSize) getPageNo else {
       incrementPageNo
       getPageNo
     }

@@ -21,6 +21,11 @@ package com.virdis.models
 
 case class Key(underlying: Long)   extends AnyVal
 case class Page(underlying: Int)   extends AnyVal
+
+/**
+  * Represents the Address in the [[Page]] where the
+  * [[PayloadBuffer]] is going to be added
+  */
 case class Offset(underlying: Int) extends AnyVal
 
 case class SearchResult(key: Key, page: Page, offSet: Offset)
