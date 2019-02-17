@@ -38,7 +38,7 @@ class BlockWriter[F[_]](config: Config[MyConfig])(
     val indexBuffer     = new IndexByteBuffer(ByteBuffer.allocateDirect(keySet.size() * config.indexKeySize))
     val dataBufferSize  = config.blockSize - (config.bloomFilterSize + config.footerSize + indexBuffer.underlying.capacity())
     val dataBuffer      = ByteBuffer.allocateDirect(dataBufferSize)
-    val calculatedPages = Math.floor(dataBufferSize.toDouble / config.pageSize).toInt
+    val calculatedPages = Math.ceil(dataBufferSize.toDouble / config.pageSize).toInt
     val pages           = new Pages(calculatedPages, config.pageSize)
     while(iterator.hasNext) {
       val key: Long = iterator.next()
