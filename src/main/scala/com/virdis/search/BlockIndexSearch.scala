@@ -22,7 +22,7 @@ package com.virdis.search
 import java.nio.ByteBuffer
 
 import cats.effect.Sync
-import com.virdis.models.{Key, Offset, Page, SearchResult}
+import com.virdis.models.{GeneratedKey, Offset, Page, SearchResult}
 
 abstract class BlockIndexSearch[F[_]](implicit F: Sync[F]) {
   // TODO REMOVE PRINTLN
@@ -54,7 +54,7 @@ abstract class BlockIndexSearch[F[_]](implicit F: Sync[F]) {
         hi = mid - 1
       } else {
         return SearchResult(
-          key     = Key(searchKey),
+          key     = GeneratedKey(searchKey),
           page    = Page(page),
           offSet  = Offset(offSet)
         )

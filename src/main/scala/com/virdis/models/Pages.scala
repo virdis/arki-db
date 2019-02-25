@@ -55,10 +55,10 @@ final class Pages(val size: Int, val pageSize: Int) {
     * @return [[Page]] , [[Offset]]
     */
   def add(pb: PayloadBuffer): (Page,Offset) = {
-    val pgNumber = calculatePageNo(pb.payload.capacity())
+    val pgNumber = calculatePageNo(pb.underlying.capacity())
     val currentOffset = getPosition
-    pb.payload.flip()
-    pages(pgNumber).put(pb.payload)
+    pb.underlying.flip()
+    pages(pgNumber).put(pb.underlying)
     (Page(pgNumber), Offset(currentOffset))
   }
 

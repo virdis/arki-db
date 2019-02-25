@@ -24,11 +24,9 @@ import java.nio.ByteBuffer
 import cats.effect.{ContextShift, Sync}
 import com.virdis.models._
 import com.virdis.threadpools.IOThreadFactory
-import com.virdis.threadpools.ThreadPool.BlockingIOPool
 import com.virdis.utils.{Config, Utils}
-import com.virdis.utils.Tags.MyConfig
 
-class BlockWriter[F[_]](config: Config[MyConfig])(
+class BlockWriter[F[_]](config: Config)(
   implicit F: Sync[F], C: ContextShift[F]
 ){
 
@@ -45,7 +43,7 @@ class BlockWriter[F[_]](config: Config[MyConfig])(
       val pb: PayloadBuffer = map.get(key)
       // we dont need bound check here since the map will be under maxAllowedBlockSize
       val (page,offSet) = pages.add(pb)
-      indexBuffer.add(Key(key), page, offSet)
+      indexBuffer.add(GeneratedKey(key), page, offSet)
     }
     BlockWriterResult(pages, indexBuffer)
   }

@@ -1,3 +1,4 @@
+
 /*
  *
  *     Copyright (c) 2019 Sandeep Virdi
@@ -16,10 +17,12 @@
  *
  */
 
-package com.virdis.utils
+package com.virdis.models
 
-object Tags {
+import java.util
 
-  trait Default
+case class FrozenInMemoryBlock(map: util.NavigableMap[Long, PayloadBuffer]) extends AnyVal
 
+object FrozenInMemoryBlock {
+  final val EMPTY = FrozenInMemoryBlock(new util.TreeMap[Long, PayloadBuffer]())
 }

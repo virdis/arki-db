@@ -23,9 +23,8 @@ package com.virdis.models
 import java.nio.ByteBuffer
 
 import com.virdis.utils.Config
-import com.virdis.utils.Tags.MyConfig
 
-final class MergeBlockResult(config: Config[MyConfig]) {
+final class MergeBlockResult(config: Config) {
   var currentTotal = 0
   // lets over allocate data buffer and index
   val pages1: Pages           = new Pages(config.pagesFromAllowBlockSize, config.pageSize)
@@ -33,7 +32,7 @@ final class MergeBlockResult(config: Config[MyConfig]) {
   val index1: IndexByteBuffer = new IndexByteBuffer(ByteBuffer.allocateDirect(config.maxAllowedBlockSize / 2))
   val index2: IndexByteBuffer = new IndexByteBuffer(ByteBuffer.allocateDirect(config.maxAllowedBlockSize / 2))
 
-  def add(key: Key, payloadBuffer: PayloadBuffer) = {
+  def add(key: GeneratedKey, payloadBuffer: PayloadBuffer) = {
     if (switchPages(payloadBuffer)) {
       val (page, offset) = pages1.add(payloadBuffer)
       index1.add(key, page, offset)
@@ -41,10 +40,10 @@ final class MergeBlockResult(config: Config[MyConfig]) {
       val (page, offset) = pages2.add(payloadBuffer)
       index2.add(key, page, offset)
     }
-    currentTotal += payloadBuffer.payload.capacity() + config.indexKeySize
+    currentTotal += payloadBuffer.underlying.capacity() + config.indexKeySize
   }
 
   @inline def switchPages(payloadBuffer: PayloadBuffer): Boolean =
-     currentTotal + payloadBuffer.payload.capacity() + config.indexKeySize < config.maxAllowedBlockSize
+     currentTotal + payloadBuffer.underlying.capacity() + config.indexKeySize < config.maxAllowedBlockSize
 
 }

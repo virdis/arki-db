@@ -19,9 +19,9 @@
 
 package com.virdis.utils
 
-import com.virdis.utils.Tags.{Default, Test}
+import com.virdis.utils.Tags.{Default}
 
-final class Config[+T](
+final class Config(
                         final val pageSize: Int          = Constants.PAGE_SIZE,
                         final val blockSize: Int         = Constants.SIXTY_FOUR_MB_BYTES,
                         final val bloomFilterSize: Int   = Constants.BLOOM_FILTER_SIZE,
@@ -38,16 +38,13 @@ final class Config[+T](
   // WHEN ADDING DATA TO IN MEMORY MAP
   final val pagesFromAllowBlockSize: Int = Math.floor(maxAllowedBlockSize / pageSize).toInt
 
+  final val xxHashSeed = Constants.XXHASH_SEED
+
 }
 
 object Config {
 
-  implicit val default: Config[Default] = new Config[Default]()
-  implicit val test: Config[Test] = new Config[Test](
-    Constants.Test.TEST_PG_SIZE,
-    Constants.Test.TEST_BLCK_SIZE,
-    Constants.Test.TEST_BF_SIZE,
-    Constants.Test.TEST_FOOTER_SIZE
-  )
+  implicit val default = new Config()
+
 }
 

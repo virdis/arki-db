@@ -38,6 +38,6 @@ final case class DataByteBuffer(val underlying: ByteBuffer) extends AnyVal {
     byteBuffer.put(value)
     byteBuffer.put(isDelete)
     byteBuffer.flip()
-    PayloadBuffer(byteBuffer)
+    PayloadBuffer.fromBuffer(byteBuffer)
   }
 }

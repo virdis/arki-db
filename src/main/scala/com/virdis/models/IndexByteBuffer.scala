@@ -27,11 +27,11 @@ import com.virdis.utils.Constants
 final class IndexByteBuffer(val underlying: ByteBuffer) {
   private var _counter = 0
   // We dont create a duplicate since we want the internal Buffer counters to increment
-  def getIndexElement: (Key, Page, Offset) = {
+  def getIndexElement: (GeneratedKey, Page, Offset) = {
     val key    = underlying.getLong
     val page   = underlying.getInt
     val offSet = underlying.getInt
-    (Key(key), Page(page), Offset(offSet))
+    (GeneratedKey(key), Page(page), Offset(offSet))
   }
 
   @inline def checkBounds: Boolean = underlying.position() + Constants.INDEX_KEY_SIZE < underlying.capacity()
@@ -39,7 +39,7 @@ final class IndexByteBuffer(val underlying: ByteBuffer) {
   @inline def incrementCounter = _counter = getCounter + 1
 
 
-  def add(key: Key, page: Page, offset: Offset) = {
+  def add(key: GeneratedKey, page: Page, offset: Offset) = {
     underlying.putLong(key.underlying)
     underlying.putInt(page.underlying)
     underlying.putInt(offset.underlying)

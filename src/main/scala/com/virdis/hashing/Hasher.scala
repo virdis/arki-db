@@ -16,10 +16,24 @@
  *
  */
 
-package com.virdis.utils
+package com.virdis.hashing
 
-object Tags {
+import java.nio.ByteBuffer
 
-  trait Default
+import com.virdis.models.GeneratedKey
+import com.virdis.utils.Constants
+import net.jpountz.xxhash.{XXHash64, XXHashFactory}
 
+trait Hasher[A] {
+  def instance: A
+  def hash(key: ByteBuffer): GeneratedKey
+}
+
+object Hasher {
+
+  implicit val xxhash64: Hasher[XXHash64] = new Hasher[XXHash64] {
+    @inline final override val instance: XXHash64 = XXHashFactory.fastestInstance().hash64()
+
+    @inline final override def hash(key: ByteBuffer): GeneratedKey = GeneratedKey(instance.hash(key, Constants.XXHASH_SEED))
+  }
 }

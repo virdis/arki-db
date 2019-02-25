@@ -36,6 +36,10 @@ object Constants {
   final val INT_SIZE_IN_BYTES      = java.lang.Integer.BYTES
   final val SHORT_SIZE_IN_BYTES    = java.lang.Short.BYTES
   final val BYTE_SIZE_IN_BYTES     = java.lang.Byte.BYTES
+  final val TRUE_BYTES             = 1.toByte
+  final val FALSE_BYTES            = 0.toByte
+
+  final val XXHASH_SEED            = 0x9747b28b
 
   object Test {
     final val TEST_PG_SIZE    = 64 // bytes

@@ -66,46 +66,7 @@ trait CommonFixtures {
   def listOfGenBytes(n:Int): List[Array[Byte]] =
     Gen.listOfN(n, genBytes).sample.get
 
-  def variableKeyValue = {
-    var totalSize = 0
-    val allowedSize = testConfig.blockSize - (testConfig.bloomFilterSize + testConfig.footerSize) // 512 - (16+48)
 
-    def go(acc: List[Array[Byte]], total: Int): List[Array[Byte]] = {
-      val arrBytes = listOfGenBytes(1)
-      val arrSize = arrBytes.headOption.map(_.size).getOrElse(0)
-      val currentTotal = total + arrSize
-      if (currentTotal < allowedSize ) {
-        if (arrSize < testConfig.pageSize ) go(acc ++ arrBytes, currentTotal) else  go(acc, total)
-      } else acc
-    }
-
-    val data = go(List.empty[Array[Byte]], totalSize)
-    println(s"ARRAY SIZE=${data.size}")
-    val (map, _, _, accPayloadByteBuffer) = data.foldLeft(
-      (new util.TreeMap[Long, ByteBuffer], 0, 0, List.empty[ByteBuffer])
-    ){
-      case ((acc, keyCounter, sizeCounter, accPayloadBuffer), a) =>
-        val generatedKey: Long = keyCounter
-        val keyBuffer   = ByteBuffer.wrap(a)
-        val valueBuffer = ByteBuffer.wrap(a)
-        val payloadByteBuffer = ByteBuffer.allocate((2 * a.size) + 5)
-        payloadByteBuffer.putShort(keyBuffer.capacity().toShort)
-        payloadByteBuffer.put(keyBuffer)
-        payloadByteBuffer.putShort(valueBuffer.capacity().toShort)
-        payloadByteBuffer.put(valueBuffer)
-        payloadByteBuffer.put(1.toByte)
-        if(payloadByteBuffer.capacity() + 8 + sizeCounter < allowedSize) {
-          acc.put(generatedKey, payloadByteBuffer)
-          accPayloadBuffer :+ payloadByteBuffer.duplicate()
-          (acc, keyCounter + 1, sizeCounter + 8 + payloadByteBuffer.capacity(), accPayloadBuffer)
-        } else {
-          (acc, keyCounter, sizeCounter, accPayloadBuffer)
-        }
-
-    }
-    (map, accPayloadByteBuffer)
-
-  }
 
 }
 

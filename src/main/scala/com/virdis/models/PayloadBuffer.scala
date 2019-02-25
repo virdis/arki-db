@@ -21,9 +21,30 @@ package com.virdis.models
 
 import java.nio.ByteBuffer
 
+import com.virdis.utils.Constants
+
 /**
   * Represents KEYSIZE:KEY:VALUESIZE:VALUE:DELETED
   * @param payload
   */
-final case class PayloadBuffer(payload: ByteBuffer) extends AnyVal
+sealed abstract case class PayloadBuffer(underlying: ByteBuffer)
+
+object PayloadBuffer {
+
+  def fromKeyValue(key: ByteBuffer, value: ByteBuffer): PayloadBuffer = {
+    val dupKey   = key.duplicate()
+    val dupValue = value.duplicate()
+    val buffer   = ByteBuffer.allocate(5 + key.capacity() + value.capacity() )
+    dupKey.flip()
+    dupValue.flip()
+    buffer.putShort(dupKey.capacity().toShort)
+    buffer.put(dupKey)
+    buffer.putShort(dupValue.capacity().toShort)
+    buffer.put(dupValue)
+    buffer.put(Constants.TRUE_BYTES)
+    new PayloadBuffer(buffer){}
+  }
+
+  def fromBuffer(buff: ByteBuffer): PayloadBuffer = new PayloadBuffer(buff) {}
+}
 

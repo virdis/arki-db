@@ -1,3 +1,4 @@
+
 /*
  *
  *     Copyright (c) 2019 Sandeep Virdi
@@ -16,10 +17,31 @@
  *
  */
 
-package com.virdis.utils
+package com.virdis.io
 
-object Tags {
+import com.virdis.BaseSpec
 
-  trait Default
+class BlockWriterSpec extends BaseSpec {
+  class Fixture {
+
+  }
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
