@@ -37,7 +37,7 @@ class PagesSpec extends BaseSpec {
   class Fixture {
    def pb = (0 until 10).toList.map {
       i =>
-        val pb = PayloadBuffer(ByteBuffer.allocate(4).putInt(i))
+        val pb = PayloadBuffer.fromBuffer(ByteBuffer.allocate(4).putInt(i))
         pb
     }
   }
@@ -52,7 +52,7 @@ class PagesSpec extends BaseSpec {
   }
   it should "add payload buffer, within page limit " in {
     val pg = new Pages(3, 32)
-    val pb = PayloadBuffer(ByteBuffer.allocate(31))
+    val pb = PayloadBuffer.fromBuffer(ByteBuffer.allocate(31))
     Future{ pg.add(pb) }.map {
       case(p,off) =>
         cleanup(pg)

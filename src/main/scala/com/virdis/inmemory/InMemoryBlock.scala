@@ -29,6 +29,7 @@ import cats.effect.concurrent.Semaphore
 import com.virdis.hashing.Hasher
 import com.virdis.models.{FrozenInMemoryBlock, PayloadBuffer}
 import com.virdis.utils.Config
+import cats.implicits._
 
 abstract class InMemoryBlock[F[_], Hash](
                                   config: Config,
@@ -37,21 +38,25 @@ abstract class InMemoryBlock[F[_], Hash](
   @volatile var cmap                 = new ConcurrentSkipListMap[Long, PayloadBuffer]()
   private final val currentPageSize  = new AtomicInteger(0)
   private final val totalPages       = new AtomicInteger(0)
-  final val allowedPages = config.pagesFromAllowBlockSize - 1
+  final val allowedPages             = config.pagesFromAllowBlockSize - 1
 
   def add0(
             key: Long,
             payloadBuffer: PayloadBuffer,
             guard: F[Semaphore[F]]
           ): F[FrozenInMemoryBlock] = {
-    var block = FrozenInMemoryBlock.EMPTY
+    println(s"Key=${key}")
     F.ifM(F.delay(currentPageSize.addAndGet(config.indexKeySize + payloadBuffer.underlying.capacity()) > config.pageSize))({
-      F.ifM(F.delay(totalPages.incrementAndGet() == allowedPages))({
+      println(s"Outer If Block=${key} CurrentPageSize=${currentPageSize}")
+      F.ifM(F.delay(totalPages.incrementAndGet() == allowedPages))({ // increment pageSize
         F.flatMap(guard) {
           semaphore =>
-            // latch for resassign the block
+            // latch for reassigning the block
             semaphore.withPermit {
-              block = FrozenInMemoryBlock(cmap)
+              println(s"Config=${config.pagesFromAllowBlockSize}")
+              println(s"MAP=${cmap.size()} CurrentPageSize=${currentPageSize.get()} totalPages=${totalPages.get()}")
+              val block = FrozenInMemoryBlock(cmap)
+              println(s"With Permit, map=${cmap.size()}")
               totalPages.set(0)
               cmap = new ConcurrentSkipListMap[Long, PayloadBuffer]()
               F.delay(block)
@@ -59,15 +64,15 @@ abstract class InMemoryBlock[F[_], Hash](
         }
       },
         F.suspend {
+          println(s"Inner Else Block=${key} CurrentPageSize=${currentPageSize}")
           currentPageSize.set(0)
           currentPageSize.addAndGet(config.indexKeySize + payloadBuffer.underlying.capacity())
-          cmap.put(key, payloadBuffer)
-          F.delay(block)
+          F.delay(cmap.put(key, payloadBuffer)) *> F.delay(FrozenInMemoryBlock.EMPTY)
         })
     },
       F.suspend {
-        cmap.put(key, payloadBuffer)
-        F.delay(block)
+        println(s"Outer Else Block=${key} CurrentPageSize=${currentPageSize}")
+        F.delay(cmap.put(key, payloadBuffer)) *> F.delay(FrozenInMemoryBlock.EMPTY)
       })
   }
 
@@ -81,37 +86,4 @@ abstract class InMemoryBlock[F[_], Hash](
       }
   }
 }
-
-
-
-
-
-/*if (currentPageSize.addAndGet(config.indexKeySize + payloadBuffer.underlying.capacity()) > config.pageSize) {
-  if (totalPages.incrementAndGet() == allowedPages) { // incremented pages
-    F.flatMap(guard){
-      semaphore =>
-        semaphore.withPermit {
-          block = FrozenInMemoryBlock(cmap)
-          totalPages.set(0)
-          cmap = new ConcurrentSkipListMap[Long, PayloadBuffer]()
-          F.unit // change this to make it pure
-        }
-    }
-  }
-  currentPageSize.set(0)
-  currentPageSize.addAndGet(config.indexKeySize + payloadBuffer.underlying.capacity())
-  cmap.put(key, payloadBuffer)
-} else {
-  cmap.put(key, payloadBuffer)
-}
-block*/
-
-
-
-
-
-
-
-
-
 

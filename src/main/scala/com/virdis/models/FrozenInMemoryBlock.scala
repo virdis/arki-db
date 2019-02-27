@@ -21,7 +21,9 @@ package com.virdis.models
 
 import java.util
 
-case class FrozenInMemoryBlock(map: util.NavigableMap[Long, PayloadBuffer]) extends AnyVal
+case class FrozenInMemoryBlock(map: util.NavigableMap[Long, PayloadBuffer]) extends AnyVal {
+  @inline def isEmpty: Boolean = map.isEmpty
+}
 
 object FrozenInMemoryBlock {
   final val EMPTY = FrozenInMemoryBlock(new util.TreeMap[Long, PayloadBuffer]())

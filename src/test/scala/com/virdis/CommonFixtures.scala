@@ -18,18 +18,14 @@
 
 package com.virdis
 
-import java.nio.ByteBuffer
-import java.util
-
 import cats.effect.{ContextShift, IO}
 import com.virdis.models._
 import com.virdis.utils.Config
-import com.virdis.utils.Tags.Test
 import org.scalacheck.Gen
 
 trait CommonFixtures {
   implicit val cf: ContextShift[IO] = IO.contextShift(scala.concurrent.ExecutionContext.global)
-  val testConfig = implicitly[Config[Test]]
+  val testConfig = new Config()
 
  def genSearchKey(upperBound: Long) = {
    Gen.choose(1, upperBound)

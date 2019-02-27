@@ -20,62 +20,76 @@
 package com.virdis.io
 
 import java.nio.ByteBuffer
+import java.util.Random
 
+import cats.Applicative
 import cats.effect.{Concurrent, ContextShift, IO, Sync}
 import cats.effect.concurrent.Semaphore
 import cats.kernel.Hash
 import com.virdis.BaseSpec
 import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
-import com.virdis.models.{FrozenInMemoryBlock, PayloadBuffer}
+import com.virdis.models.{FrozenInMemoryBlock, GeneratedKey, PayloadBuffer}
 import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.{Config, Constants}
 import net.jpountz.xxhash.XXHash64
 import org.scalacheck.Gen
 
+import scala.concurrent.Future
+
 class InMemoryBlockSpec extends BaseSpec {
+  implicit val hasher = implicitly[Hasher[XXHash64]]
+  implicit val ioShift: ContextShift[IO] = IO.contextShift(IOThreadFactory.blockingIOPool.executionContext)
+  implicit val concurrentIO = Concurrent[IO]
+  implicit val semaphore = Semaphore[IO](1)
+  implicit val syc = Sync[IO]
+
   class Fixture {
-    def GenString = for {
-      s <- Gen.alphaStr.suchThat(_.getBytes.size < 150)
-    } yield s
-    implicit val hasher = implicitly[Hasher[XXHash64]]
-    implicit val ioShift: ContextShift[IO] = IO.contextShift(IOThreadFactory.blockingIOPool.executionContext)
-    implicit val concurrentIO = Concurrent[IO]
-    implicit val semaphore = Semaphore[IO](1)
-    implicit val syc = Sync[IO]
     val config = new Config(
       blockSize = Constants.SIXTY_FOUR_MB_BYTES / 4 ,// 16 MB
       bloomFilterSize = 262144 // 256
     )
     val imb = new InMemoryBlock[IO, XXHash64](config, hasher) {}
+    val random = new Random()
 
+    def generateMapData: (GeneratedKey, ByteBuffer, ByteBuffer) = {
+      val array = new Array[Byte](81)
+      random.nextBytes(array)
+      val gKey  = hasher.hash(ByteBuffer.wrap(array))
+      val key   = ByteBuffer.wrap(array)
+      val value = ByteBuffer.wrap(array)
+      (gKey, key, value)
+    }
     def buildMap(
                   imb: InMemoryBlock[IO, XXHash64],
-                  semaphore: Semaphore[IO]
+                  semaphore: IO[Semaphore[IO]],
+                  noOfPages: Int = config.pagesFromAllowBlockSize - 1
                 ) = {
-      var fimb = FrozenInMemoryBlock.EMPTY
-      while(fimb.map.isEmpty) {
-        for {
-          data <- GenString
-        } yield {
-          val gKey  = hasher.hash(ByteBuffer.wrap(data.getBytes))
-          val key   = ByteBuffer.wrap(data.getBytes)
-          val value = ByteBuffer.wrap(data.getBytes)
-          fimb = imb.add0(
-            gKey.underlying,
-            PayloadBuffer.fromKeyValue(key, value),
-            semaphore
-          )
+
+      def go(fimb: FrozenInMemoryBlock): FrozenInMemoryBlock = {
+        if (!fimb.isEmpty) fimb
+        else {
+          val (gKey, key, value) = generateMapData
+          go(imb.add0(gKey.underlying,
+            PayloadBuffer.fromKeyValue(key, value), semaphore).unsafeRunSync())
         }
       }
-      fimb
+      go(FrozenInMemoryBlock.EMPTY)
     }
   }
 
   it should "build map with correct size" in {
     val f = new Fixture
     import f._
-    val result = buildMap(imb, semaphore)
-    ???
+    val fimb = buildMap(imb, semaphore)
+    assert(!fimb.isEmpty && imb.cmap.isEmpty)
+  }
+  it should "update maps" in {
+    val f = new Fixture
+    import f._
+    val fimb = buildMap(imb, semaphore)
+    val list = List.fill(10)(generateMapData)
+    list.foreach(data => imb.add0(data._1.underlying, PayloadBuffer.fromKeyValue(data._2, data._3), semaphore).unsafeRunSync())
+    assert(!fimb.isEmpty && !imb.cmap.isEmpty && (imb.cmap.size() == 10))
   }
 }
