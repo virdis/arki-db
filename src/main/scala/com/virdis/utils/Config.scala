@@ -43,8 +43,6 @@ final class Config(
 }
 
 object Config {
-
   implicit val default = new Config()
-
 }
 

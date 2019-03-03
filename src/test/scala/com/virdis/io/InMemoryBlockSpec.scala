@@ -49,11 +49,14 @@ class InMemoryBlockSpec extends BaseSpec {
       blockSize = Constants.SIXTY_FOUR_MB_BYTES / 4 ,// 16 MB
       bloomFilterSize = 262144 // 256
     )
-    val imb = new InMemoryBlock[IO, XXHash64](config, hasher) {}
+    def buildImMemoryBlock(config: Config) =
+      new InMemoryBlock[IO, XXHash64](config, hasher) {}
+
+    val imb = buildImMemoryBlock(config)
     val random = new Random()
 
-    def generateMapData: (GeneratedKey, ByteBuffer, ByteBuffer) = {
-      val array = new Array[Byte](81)
+    def generateMapData(dataSize: Int = 81): (GeneratedKey, ByteBuffer, ByteBuffer) = {
+      val array = new Array[Byte](dataSize)
       random.nextBytes(array)
       val gKey  = hasher.hash(ByteBuffer.wrap(array))
       val key   = ByteBuffer.wrap(array)
@@ -69,13 +72,22 @@ class InMemoryBlockSpec extends BaseSpec {
       def go(fimb: FrozenInMemoryBlock): FrozenInMemoryBlock = {
         if (!fimb.isEmpty) fimb
         else {
-          val (gKey, key, value) = generateMapData
+          val (gKey, key, value) = generateMapData()
           go(imb.add0(gKey.underlying,
             PayloadBuffer.fromKeyValue(key, value), semaphore).unsafeRunSync())
         }
       }
       go(FrozenInMemoryBlock.EMPTY)
     }
+
+    val imbPg512 = buildImMemoryBlock(
+      new Config(
+        blockSize = Constants.SIXTY_FOUR_MB_BYTES / 64,
+        pageSize = Constants.PAGE_SIZE / 8, // 512 K
+        bloomFilterSize = 0,
+        footerSize =  0
+      )
+    )
   }
 
   it should "build map with correct size" in {
@@ -88,8 +100,16 @@ class InMemoryBlockSpec extends BaseSpec {
     val f = new Fixture
     import f._
     val fimb = buildMap(imb, semaphore)
-    val list = List.fill(10)(generateMapData)
+    val list = List.fill(10)(generateMapData())
     list.foreach(data => imb.add0(data._1.underlying, PayloadBuffer.fromKeyValue(data._2, data._3), semaphore).unsafeRunSync())
     assert(!fimb.isEmpty && !imb.cmap.isEmpty && (imb.cmap.size() == 10))
+  }
+  it should "update the pages" in {
+    val f = new Fixture
+    import f._
+    val list = List.fill(5)(generateMapData())
+    list.foreach(data => imbPg512.add0(data._1.underlying, PayloadBuffer.fromKeyValue(data._2, data._3), semaphore).unsafeRunSync())
+    assert(imbPg512.getCurrentPage == 2)
+
   }
 }
