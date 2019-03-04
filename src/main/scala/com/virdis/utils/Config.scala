@@ -19,8 +19,6 @@
 
 package com.virdis.utils
 
-import com.virdis.utils.Tags.{Default}
-
 final class Config(
                         final val pageSize: Int          = Constants.PAGE_SIZE,
                         final val blockSize: Int         = Constants.SIXTY_FOUR_MB_BYTES,

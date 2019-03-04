@@ -26,11 +26,11 @@ import com.virdis.models._
 import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.{Config, Utils}
 
-class BlockWriter[F[_]](config: Config)(
+final class BlockWriter[F[_]](config: Config)(
   implicit F: Sync[F], C: ContextShift[F]
 ){
 
-  private def build0(map: java.util.NavigableMap[Long, PayloadBuffer])= {
+  private final def build0(map: java.util.NavigableMap[Long, PayloadBuffer])= {
     val keySet          = map.navigableKeySet()
     val iterator        = keySet.iterator()
     val indexBuffer     = new IndexByteBuffer(ByteBuffer.allocateDirect(keySet.size() * config.indexKeySize))
@@ -39,7 +39,7 @@ class BlockWriter[F[_]](config: Config)(
     val calculatedPages = Math.ceil(dataBufferSize.toDouble / config.pageSize).toInt
     val pages           = new Pages(calculatedPages, config.pageSize)
     while(iterator.hasNext) {
-      val key: Long = iterator.next()
+      val key: Long         = iterator.next()
       val pb: PayloadBuffer = map.get(key)
       // we dont need bound check here since the map will be under maxAllowedBlockSize
       val (page,offSet) = pages.add(pb)
@@ -48,7 +48,7 @@ class BlockWriter[F[_]](config: Config)(
     BlockWriterResult(pages, indexBuffer)
   }
 
-  def build(map: java.util.NavigableMap[Long, PayloadBuffer])() = {
+  final def build(map: java.util.NavigableMap[Long, PayloadBuffer])() = {
     C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(F.delay(build0(map)))
   }
 

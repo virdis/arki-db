@@ -30,16 +30,11 @@ import com.virdis.BaseSpec
 import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
 import com.virdis.models.{FrozenInMemoryBlock, GeneratedKey, PayloadBuffer}
-import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.{Config, Constants}
 import net.jpountz.xxhash.XXHash64
-import org.scalacheck.Gen
-
-import scala.concurrent.Future
 
 class InMemoryBlockSpec extends BaseSpec {
   implicit val hasher = implicitly[Hasher[XXHash64]]
-  implicit val ioShift: ContextShift[IO] = IO.contextShift(IOThreadFactory.blockingIOPool.executionContext)
   implicit val concurrentIO = Concurrent[IO]
   implicit val semaphore = Semaphore[IO](1)
   implicit val syc = Sync[IO]
@@ -110,6 +105,5 @@ class InMemoryBlockSpec extends BaseSpec {
     val list = List.fill(5)(generateMapData())
     list.foreach(data => imbPg512.add0(data._1.underlying, PayloadBuffer.fromKeyValue(data._2, data._3), semaphore).unsafeRunSync())
     assert(imbPg512.getCurrentPage == 2)
-
   }
 }

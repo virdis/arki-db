@@ -20,6 +20,13 @@
 
 package com.virdis
 
+import cats.effect.{ContextShift, IO}
+import com.virdis.threadpools.IOThreadFactory
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
-class BaseSpec extends AsyncFlatSpec with Matchers
+import scala.concurrent.ExecutionContext
+
+class BaseSpec extends AsyncFlatSpec with Matchers {
+  implicit val ioShift: ContextShift[IO] = IO.contextShift(IOThreadFactory.blockingIOPool.executionContext)
+  implicit val globalPool: ExecutionContext = IOThreadFactory.GLOBAL_POOL.executionContext
+}

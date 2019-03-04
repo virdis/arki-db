@@ -19,13 +19,25 @@
 
 package com.virdis.io
 
+import cats.effect.IO
 import com.virdis.BaseSpec
+import com.virdis.utils.Config
 
 class BlockWriterSpec extends BaseSpec {
   class Fixture {
-
+    val config = new Config(
+      pageSize = 1024,
+      blockSize = 524288,
+      bloomFilterSize = 64,
+      footerSize = 48
+    )
+    val blockWriter = new BlockWriter[IO](config)
   }
 
+  it should "" in {
+
+    ???
+  }
 }
 
 

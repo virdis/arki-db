@@ -24,23 +24,24 @@ import java.util.concurrent.ConcurrentSkipListMap
 import java.util.concurrent.atomic.AtomicInteger
 
 import cats.FlatMap
-import cats.effect.{Concurrent, ConcurrentEffect, Sync}
+import cats.effect._
 import cats.effect.concurrent.Semaphore
 import com.virdis.hashing.Hasher
-import com.virdis.models.{FrozenInMemoryBlock, PayloadBuffer}
+import com.virdis.models.{BlockWriterResult, FrozenInMemoryBlock, PayloadBuffer}
 import com.virdis.utils.Config
 import cats.implicits._
 import com.virdis.io.BlockWriter
 
 abstract class InMemoryBlock[F[_], Hash](
                                   config: Config,
-                                  hasher: Hasher[Hash],
-                                  blockWriter: BlockWriter[F]
-                                  )(implicit F: Sync[F], T: Concurrent[F]) {
+                                  hasher: Hasher[Hash]
+                                  )(implicit F: Sync[F], T: Concurrent[F], C: ContextShift[F]) {
   @volatile var cmap                   = new ConcurrentSkipListMap[Long, PayloadBuffer]()
   private final val currentPageOffSet  = new AtomicInteger(0)
   private final val currentPage        = new AtomicInteger(0)
   final val allowedPages               = config.pagesFromAllowBlockSize - 1
+
+  final val blockWriter = new BlockWriter[F](config)
 
   @inline def getCurrentPageOffSet = currentPageOffSet.get()
   @inline def getCurrentPage       = currentPage.get()
@@ -81,23 +82,22 @@ abstract class InMemoryBlock[F[_], Hash](
       })
   }
 
-  def add(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]) = {
-    val frozenImb: F[FrozenInMemoryBlock] = F.flatMap(F.delay {
+  def add(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]])= {
+    F.flatMap(F.delay {
       val duplicateKey = key.duplicate()
       hasher.hash(duplicateKey)
     }) {
       generatedKey =>
-        add0(generatedKey.underlying, PayloadBuffer.fromKeyValue(key, value), guard)
-      }
-    T.flatMap(T.start(frozenImb)) {
-      fiber =>
-        T.flatMap(fiber.join) {
-          fimb =>
-            T.whenA(!fimb.isEmpty) {
-              blockWriter.build(fimb.map)
-            }
+        T.flatMap(
+          T.start(add0(generatedKey.underlying, PayloadBuffer.fromKeyValue(key, value), guard))
+        ) {
+          fiber =>
+            //TODO change Suspend, also change this design maybe look at queue
+            // add the block to queue once done
+            F.suspend(fiber.join)
         }
-    }
+      }
+
   }
 
 }
