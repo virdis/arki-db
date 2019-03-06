@@ -31,7 +31,7 @@ final class Config(
   def shortSizeInBytes: Int  = Constants.SHORT_SIZE_IN_BYTES
   def byteSizeInBytes: Int   = Constants.BYTE_SIZE_IN_BYTES
 
-  final val maxAllowedBlockSize: Int = blockSize - (bloomFilterSize + footerSize)
+  final val maxAllowedBlockSize: Int = blockSize - (bloomFilterSize + footerSize) // should be multiple of 2
   //TODO DOCUMENT WHEN TO USE
   // WHEN ADDING DATA TO IN MEMORY MAP
   final val pagesFromAllowBlockSize: Int = Math.floor(maxAllowedBlockSize / pageSize).toInt

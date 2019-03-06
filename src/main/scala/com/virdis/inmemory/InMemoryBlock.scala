@@ -33,18 +33,17 @@ import cats.implicits._
 import com.virdis.io.BlockWriter
 
 abstract class InMemoryBlock[F[_], Hash](
-                                  config: Config,
-                                  hasher: Hasher[Hash]
+                                  val config: Config,
+                                  val hasher: Hasher[Hash]
                                   )(implicit F: Sync[F], T: Concurrent[F], C: ContextShift[F]) {
   @volatile var cmap                   = new ConcurrentSkipListMap[Long, PayloadBuffer]()
   private final val currentPageOffSet  = new AtomicInteger(0)
-  private final val currentPage        = new AtomicInteger(0)
-  final val allowedPages               = config.pagesFromAllowBlockSize - 1
-
+  private final val pageCounter        = new AtomicInteger(0)
+  private final val maxAllowedBytes    = new AtomicInteger(0)
   final val blockWriter = new BlockWriter[F](config)
 
   @inline def getCurrentPageOffSet = currentPageOffSet.get()
-  @inline def getCurrentPage       = currentPage.get()
+  @inline def getCurrentPage       = pageCounter.get()
 
   def add0(
             key: Long,
@@ -52,51 +51,48 @@ abstract class InMemoryBlock[F[_], Hash](
             guard: F[Semaphore[F]]
           ): F[FrozenInMemoryBlock] = {
     println(s"Key=${key}")
-    F.ifM(F.delay(currentPageOffSet.addAndGet(config.indexKeySize + payloadBuffer.underlying.capacity()) > config.pageSize))({
-      println(s"Outer If Block=${key} CurrentPageSize=${currentPageOffSet}")
-      F.ifM(F.delay(currentPage.incrementAndGet() == allowedPages))({ // increment pageSize
+    val entrySizeInBytes = config.indexKeySize + payloadBuffer.underlying.capacity()
+    println(s"MaxedAllowedBytes=${maxAllowedBytes.get()}")
+    F.ifM(F.delay(maxAllowedBytes.addAndGet(entrySizeInBytes) < config.maxAllowedBlockSize))(
+      F.ifM(F.delay(currentPageOffSet.addAndGet(entrySizeInBytes) <= config.pageSize))(
+        F.suspend {
+          println(s"Inner True key=${key} CurrentPageSize=${currentPageOffSet}")
+          F.delay(cmap.put(key, payloadBuffer)) *> F.delay(FrozenInMemoryBlock.EMPTY)
+        },
+        F.suspend {
+          currentPageOffSet.set(0)
+          val offset = currentPageOffSet.addAndGet(entrySizeInBytes)
+          val pgCount = pageCounter.incrementAndGet()
+          println(s"Inner False pagecounter=${pgCount} offSet=${offset}")
+          F.delay(cmap.put(key, payloadBuffer)) *> F.delay(FrozenInMemoryBlock.EMPTY)
+        }
+      ),
+      F.suspend {
         F.flatMap(guard) {
           semaphore =>
             // latch for reassigning the block
             semaphore.withPermit {
-              println(s"Config=${config.pagesFromAllowBlockSize}")
-              println(s"MAP=${cmap.size()} CurrentPageSize=${currentPageOffSet.get()} totalPages=${currentPage.get()}")
-              val block = FrozenInMemoryBlock(cmap)
-              println(s"With Permit, map=${cmap.size()}")
-              currentPage.set(0)
+              val block = FrozenInMemoryBlock(cmap, pageCounter.get())
+              pageCounter.set(0)
+              currentPageOffSet.set(0)
+              maxAllowedBytes.set(0)
+              val offset = currentPageOffSet.addAndGet(entrySizeInBytes)
+              maxAllowedBytes.addAndGet(entrySizeInBytes)
+              println(s"Outer False CMap Size=${cmap.size()} offset=${offset}")
               cmap = new ConcurrentSkipListMap[Long, PayloadBuffer]()
-              F.delay(block)
+              F.delay(cmap.put(key, payloadBuffer)) *> F.delay(block)
             }
         }
-      },
-        F.suspend {
-          println(s"Inner Else Block=${key} CurrentPageSize=${currentPageOffSet}")
-          currentPageOffSet.set(0)
-          currentPageOffSet.addAndGet(config.indexKeySize + payloadBuffer.underlying.capacity())
-          F.delay(cmap.put(key, payloadBuffer)) *> F.delay(FrozenInMemoryBlock.EMPTY)
-        })
-    },
-      F.suspend {
-        println(s"Outer Else Block=${key} CurrentPageSize=${currentPageOffSet}")
-        F.delay(cmap.put(key, payloadBuffer)) *> F.delay(FrozenInMemoryBlock.EMPTY)
       })
   }
 
+  //TODO change this to add FIMB to a queue
   def add(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]])= {
-    F.flatMap(F.delay {
-      val duplicateKey = key.duplicate()
-      hasher.hash(duplicateKey)
-    }) {
-      generatedKey =>
-        T.flatMap(
-          T.start(add0(generatedKey.underlying, PayloadBuffer.fromKeyValue(key, value), guard))
-        ) {
-          fiber =>
-            //TODO change Suspend, also change this design maybe look at queue
-            // add the block to queue once done
-            F.suspend(fiber.join)
-        }
-      }
+    for {
+      genratedKey  <- F.delay(hasher.hash(key.duplicate()))
+      fiber        <- T.start(add0(genratedKey.underlying, PayloadBuffer.fromKeyValue(key, value), guard))
+      fimb         <- fiber.join
+    } yield fimb
 
   }
 

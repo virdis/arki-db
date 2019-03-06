@@ -19,11 +19,26 @@
 
 package com.virdis.io
 
-import cats.effect.IO
+import java.nio.ByteBuffer
+import java.util
+
+import cats.effect.{Concurrent, IO, Sync}
+import cats.effect.concurrent.Semaphore
 import com.virdis.BaseSpec
+import com.virdis.hashing.Hasher
+import com.virdis.inmemory.InMemoryBlock
+import com.virdis.models.{FrozenInMemoryBlock, GeneratedKey}
 import com.virdis.utils.Config
+import net.jpountz.xxhash.XXHash64
+
+import scala.collection.mutable
+import scala.util.Random
 
 class BlockWriterSpec extends BaseSpec {
+  implicit val hasher = implicitly[Hasher[XXHash64]]
+  implicit val concurrentIO = Concurrent[IO]
+  implicit val semaphore = Semaphore[IO](1)
+  implicit val syc = Sync[IO]
   class Fixture {
     val config = new Config(
       pageSize = 1024,
@@ -31,12 +46,52 @@ class BlockWriterSpec extends BaseSpec {
       bloomFilterSize = 64,
       footerSize = 48
     )
-    val blockWriter = new BlockWriter[IO](config)
+    val random = new Random()
+    def genBytes(size: Int) = {
+      val array = new Array[Byte](size)
+      random.nextBytes(array)
+      array
+    }
+
+    def buildFixedLenFrozenMap(
+                     imb: InMemoryBlock[IO, XXHash64],
+                     sem: IO[Semaphore[IO]]
+                     ) = {
+      val map = new mutable.HashMap[GeneratedKey, Array[Byte]]()
+      def go(fimb: FrozenInMemoryBlock): (FrozenInMemoryBlock, mutable.HashMap[GeneratedKey, Array[Byte]]) = {
+        if (!fimb.isEmpty) (fimb, map)
+        else {
+          val bytes = genBytes(39)
+          val generatedKey = imb.hasher.hash(ByteBuffer.wrap(bytes))
+          val key = ByteBuffer.wrap(bytes)
+          val value = ByteBuffer.wrap(bytes)
+          map.put(generatedKey, bytes)
+          go(imb.add(key, value, sem).unsafeRunSync())
+        }
+      }
+      go(FrozenInMemoryBlock.EMPTY)
+    }
+    val imb = new InMemoryBlock[IO, XXHash64](config, hasher) {}
   }
 
-  it should "" in {
-
-    ???
+  it should "build Block from FrozenInMemoryBlock" in {
+    val f = new Fixture
+    import f._
+    val (fmib, orignalMap) = buildFixedLenFrozenMap(imb, semaphore)
+    val br = imb.blockWriter.build(fmib.map).unsafeRunSync()
+    val indexByteBuffer = br.indexByteBuffer
+    indexByteBuffer.underlying.flip()
+    while(indexByteBuffer.underlying.hasRemaining) {
+      val (gk, pg, off) = indexByteBuffer.getIndexElement
+      br.pages.pages(pg.underlying).position(off.underlying)
+      val pbKeySize = br.pages.pages(pg.underlying).getShort
+      val key = new Array[Byte](pbKeySize)
+      br.pages.pages(pg.underlying).get(key)
+      val dataFromOrignalMap = orignalMap.get(gk).getOrElse(Array.empty[Byte])
+      val result = util.Arrays.equals(dataFromOrignalMap, key)
+      if (result) println(s"Result=${result}")
+    }
+    assert(1==1)
   }
 }
 

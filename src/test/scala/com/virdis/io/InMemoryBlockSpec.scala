@@ -60,8 +60,7 @@ class InMemoryBlockSpec extends BaseSpec {
     }
     def buildMap(
                   imb: InMemoryBlock[IO, XXHash64],
-                  semaphore: IO[Semaphore[IO]],
-                  noOfPages: Int = config.pagesFromAllowBlockSize - 1
+                  semaphore: IO[Semaphore[IO]]
                 ) = {
 
       def go(fimb: FrozenInMemoryBlock): FrozenInMemoryBlock = {
@@ -89,7 +88,7 @@ class InMemoryBlockSpec extends BaseSpec {
     val f = new Fixture
     import f._
     val fimb = buildMap(imb, semaphore)
-    assert(!fimb.isEmpty && imb.cmap.isEmpty)
+    assert(!fimb.isEmpty && imb.cmap.size() == 1)
   }
   it should "update maps" in {
     val f = new Fixture
@@ -97,7 +96,7 @@ class InMemoryBlockSpec extends BaseSpec {
     val fimb = buildMap(imb, semaphore)
     val list = List.fill(10)(generateMapData())
     list.foreach(data => imb.add0(data._1.underlying, PayloadBuffer.fromKeyValue(data._2, data._3), semaphore).unsafeRunSync())
-    assert(!fimb.isEmpty && !imb.cmap.isEmpty && (imb.cmap.size() == 10))
+    assert(!fimb.isEmpty && !imb.cmap.isEmpty && (imb.cmap.size() == 11))
   }
   it should "update the pages" in {
     val f = new Fixture
