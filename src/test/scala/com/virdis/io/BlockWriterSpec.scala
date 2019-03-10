@@ -41,10 +41,10 @@ class BlockWriterSpec extends BaseSpec {
   implicit val syc = Sync[IO]
   class Fixture {
     val config = new Config(
-      pageSize = 1024,
-      blockSize = 524288,
-      bloomFilterSize = 64,
-      footerSize = 48
+      pageSize = 64,
+      blockSize = 640,
+      bloomFilterSize = 0,
+      footerSize = 0
     )
     val random = new Random()
     def genBytes(size: Int) = {
@@ -58,18 +58,21 @@ class BlockWriterSpec extends BaseSpec {
                      sem: IO[Semaphore[IO]]
                      ) = {
       val map = new mutable.HashMap[GeneratedKey, Array[Byte]]()
-      def go(fimb: FrozenInMemoryBlock): (FrozenInMemoryBlock, mutable.HashMap[GeneratedKey, Array[Byte]]) = {
+      def go(fimb: FrozenInMemoryBlock, counter: Int): (FrozenInMemoryBlock, mutable.HashMap[GeneratedKey, Array[Byte]]) = {
         if (!fimb.isEmpty) (fimb, map)
         else {
-          val bytes = genBytes(39)
-          val generatedKey = imb.hasher.hash(ByteBuffer.wrap(bytes))
-          val key = ByteBuffer.wrap(bytes)
-          val value = ByteBuffer.wrap(bytes)
-          map.put(generatedKey, bytes)
-          go(imb.add(key, value, sem).unsafeRunSync())
+          val keyBytes = ByteBuffer.allocate(4)
+          val valueBytes = ByteBuffer.allocate(4)
+          keyBytes.putInt(counter)
+          valueBytes.putInt(counter)
+          println(s"BUILD FROZENMAP KEY=${keyBytes} VALUE=${valueBytes}")
+          val generatedKey = imb.hasher.hash(keyBytes.duplicate())
+          map.put(generatedKey, keyBytes.array())
+          println(s"BUILD FROZENMAP KEY=${keyBytes} VALUE=${valueBytes}")
+          go(imb.add(keyBytes, valueBytes, sem).unsafeRunSync(), counter+1)
         }
       }
-      go(FrozenInMemoryBlock.EMPTY)
+      go(FrozenInMemoryBlock.EMPTY, 0)
     }
     val imb = new InMemoryBlock[IO, XXHash64](config, hasher) {}
   }
@@ -77,16 +80,21 @@ class BlockWriterSpec extends BaseSpec {
   it should "build Block from FrozenInMemoryBlock" in {
     val f = new Fixture
     import f._
-    val (fmib, orignalMap) = buildFixedLenFrozenMap(imb, semaphore)
-    val br = imb.blockWriter.build(fmib.map).unsafeRunSync()
+    val (fimb, orignalMap) = buildFixedLenFrozenMap(imb, semaphore)
+    println(s"FIMB totalPages=${fimb.totalPages}")
+    val br = imb.blockWriter.build(fimb.map, fimb.totalPages).unsafeRunSync()
     val indexByteBuffer = br.indexByteBuffer
     indexByteBuffer.underlying.flip()
+    println(s"INDEXBYTEBUFFER=${indexByteBuffer}")
     while(indexByteBuffer.underlying.hasRemaining) {
       val (gk, pg, off) = indexByteBuffer.getIndexElement
+      println(s"Page=${pg} offset=${off}")
+
       br.pages.pages(pg.underlying).position(off.underlying)
       val pbKeySize = br.pages.pages(pg.underlying).getShort
       val key = new Array[Byte](pbKeySize)
       br.pages.pages(pg.underlying).get(key)
+    //  println(s"Key=${ByteBuffer.wrap(key).getInt()}")
       val dataFromOrignalMap = orignalMap.get(gk).getOrElse(Array.empty[Byte])
       val result = util.Arrays.equals(dataFromOrignalMap, key)
       if (result) println(s"Result=${result}")

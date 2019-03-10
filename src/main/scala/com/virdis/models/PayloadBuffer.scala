@@ -32,15 +32,13 @@ sealed abstract case class PayloadBuffer(underlying: ByteBuffer)
 object PayloadBuffer {
 
   def fromKeyValue(key: ByteBuffer, value: ByteBuffer): PayloadBuffer = {
-    val dupKey   = key.duplicate()
-    val dupValue = value.duplicate()
-    val buffer   = ByteBuffer.allocate(5 + key.capacity() + value.capacity() )
-    dupKey.flip()
-    dupValue.flip()
-    buffer.putShort(dupKey.capacity().toShort)
-    buffer.put(dupKey)
-    buffer.putShort(dupValue.capacity().toShort)
-    buffer.put(dupValue)
+    val buffer = ByteBuffer.allocate(5 + key.capacity() + value.capacity() )
+    key.flip()
+    value.flip()
+    buffer.putShort(key.capacity().toShort)
+    buffer.put(key)
+    buffer.putShort(value.capacity().toShort)
+    buffer.put(value)
     buffer.put(Constants.TRUE_BYTES)
     new PayloadBuffer(buffer){}
   }

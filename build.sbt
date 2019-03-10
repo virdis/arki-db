@@ -1,9 +1,13 @@
 import Dependencies._
 
+resolvers += "Sonatype Public" at "https://oss.sonatype.org/content/groups/public/"
+
 lazy val commonDependencies = Seq(
   catsEffect,
   jnrJffi,
   lz4,
+  scodec_bits,
+  scodec_core,
   scalaTest % Test,
   scalaCheck % Test
 )

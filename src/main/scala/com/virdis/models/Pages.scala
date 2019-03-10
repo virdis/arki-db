@@ -21,31 +21,30 @@ package com.virdis.models
 
 import java.nio.ByteBuffer
 // should validate inputs???
-final class Pages(val size: Int, val pageSize: Int) {
-  private var _currentPageNo = 0
+private[models]
+final class Pages(
+                   val noOfPages: Int,
+                   val pageSize: Int,
+                   val buffer: ByteBuffer
+                 ) {
+  private var currentOffSet = 0
+  private var page = 0
 
-  val pages = new Array[ByteBuffer](size)
-  (0 until size).foldLeft(pages) {
-    (b, i) =>
-      b(i) = ByteBuffer.allocateDirect(pageSize)
-      b
-  }
-
-  def calculatePageNo(payloadSize: Int): Int = {
-    val currentSize = getPosition
-    if (currentSize + payloadSize <= pageSize) getPageNo else {
-      incrementPageNo
-      getPageNo
+  def calculatePageAndOffSet(payloadSize: Int): (Page, Offset) = {
+    // TODO this is wrong we need to move the data buffer pointer once the page counter is incremented
+    if (currentOffSet + payloadSize <= pageSize) {
+      val _currentOffSet = currentOffSet
+      currentOffSet += payloadSize
+      (Page(page), Offset(_currentOffSet))
+    } else {
+      page += 1
+      val offSet = page * pageSize
+      buffer.position(offSet)
+      currentOffSet = 0
+      currentOffSet += payloadSize
+      (Page(page), Offset(0))
     }
   }
-
-  /**
-    * This should never go over size since when building a block its
-    * we will be less than the maxAllowedBlockSize
-    */
-  @inline def incrementPageNo: Unit = _currentPageNo += + 1
-  @inline def getPageNo: Int        = _currentPageNo
-  @inline def getPosition: Int      = pages(getPageNo).position()
 
   /**
     * This method returns the current Page where the
@@ -55,11 +54,10 @@ final class Pages(val size: Int, val pageSize: Int) {
     * @return [[Page]] , [[Offset]]
     */
   def add(pb: PayloadBuffer): (Page,Offset) = {
-    val pgNumber = calculatePageNo(pb.underlying.capacity())
-    val currentOffset = getPosition
+    val (page, offset) = calculatePageAndOffSet(pb.underlying.capacity())
     pb.underlying.flip()
-    pages(pgNumber).put(pb.underlying)
-    (Page(pgNumber), Offset(currentOffset))
+    buffer.put(pb.underlying)
+    (page, offset)
   }
 
 }

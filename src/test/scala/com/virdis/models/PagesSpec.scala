@@ -44,7 +44,7 @@ class PagesSpec extends BaseSpec {
 
   it should "calculate pageno" in {
     val p = new Pages(3, 32)
-    Future { p.calculatePageNo(35) }.map {
+    Future { p.calculatePageAndOffSet(35) }.map {
       i =>
         cleanup(p)
         assert(i == 1)

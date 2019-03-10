@@ -98,11 +98,4 @@ class InMemoryBlockSpec extends BaseSpec {
     list.foreach(data => imb.add0(data._1.underlying, PayloadBuffer.fromKeyValue(data._2, data._3), semaphore).unsafeRunSync())
     assert(!fimb.isEmpty && !imb.cmap.isEmpty && (imb.cmap.size() == 11))
   }
-  it should "update the pages" in {
-    val f = new Fixture
-    import f._
-    val list = List.fill(5)(generateMapData())
-    list.foreach(data => imbPg512.add0(data._1.underlying, PayloadBuffer.fromKeyValue(data._2, data._3), semaphore).unsafeRunSync())
-    assert(imbPg512.getCurrentPage == 2)
-  }
 }
