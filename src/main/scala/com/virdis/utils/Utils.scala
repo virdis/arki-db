@@ -61,10 +61,4 @@ object Utils {
     (key, value)
   }
 
-  def pagesCleanUp[F[_]](p: Pages)
-      (F: Sync[F], C: ContextShift[F], T: Traverse[List], G: Applicative[F])= {
-    T.sequence {
-      p.pages.toList.map{ (bb: ByteBuffer) => freeDirectBuffer[F](bb)(F,C)}
-    }(G)
-  }
 }

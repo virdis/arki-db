@@ -57,49 +57,45 @@ class BlockWriterSpec extends BaseSpec {
                      imb: InMemoryBlock[IO, XXHash64],
                      sem: IO[Semaphore[IO]]
                      ) = {
-      val map = new mutable.HashMap[GeneratedKey, Array[Byte]]()
-      def go(fimb: FrozenInMemoryBlock, counter: Int): (FrozenInMemoryBlock, mutable.HashMap[GeneratedKey, Array[Byte]]) = {
-        if (!fimb.isEmpty) (fimb, map)
+      def go(fimb: FrozenInMemoryBlock,
+             counter: Int,
+             set: mutable.Set[GeneratedKey]
+            ): (FrozenInMemoryBlock, mutable.Set[GeneratedKey]) = {
+        if (!fimb.isEmpty) (fimb, set)
         else {
           val keyBytes = ByteBuffer.allocate(4)
           val valueBytes = ByteBuffer.allocate(4)
+          val bytesfromKey = ByteBuffer.allocate(4)
           keyBytes.putInt(counter)
           valueBytes.putInt(counter)
-          println(s"BUILD FROZENMAP KEY=${keyBytes} VALUE=${valueBytes}")
-          val generatedKey = imb.hasher.hash(keyBytes.duplicate())
-          map.put(generatedKey, keyBytes.array())
-          println(s"BUILD FROZENMAP KEY=${keyBytes} VALUE=${valueBytes}")
-          go(imb.add(keyBytes, valueBytes, sem).unsafeRunSync(), counter+1)
+          bytesfromKey.putInt(counter)
+          bytesfromKey.flip()
+          val genKey = imb.hasher.hash(bytesfromKey)
+          set.add(genKey)
+          go(imb.add(keyBytes, valueBytes, sem).unsafeRunSync(), counter+1, set)
         }
       }
-      go(FrozenInMemoryBlock.EMPTY, 0)
+      go(FrozenInMemoryBlock.EMPTY, 0, new mutable.HashSet[GeneratedKey]())
     }
     val imb = new InMemoryBlock[IO, XXHash64](config, hasher) {}
   }
 
-  it should "build Block from FrozenInMemoryBlock" in {
+  it should "build Block from FrozenInMemoryBlock, should build Index" in {
     val f = new Fixture
     import f._
-    val (fimb, orignalMap) = buildFixedLenFrozenMap(imb, semaphore)
-    println(s"FIMB totalPages=${fimb.totalPages}")
+    val (fimb, set) = buildFixedLenFrozenMap(imb, semaphore)
+    println(s"FIMB totalPages=${fimb.totalPages} ORIGNALSET SIZE=${set.size}")
     val br = imb.blockWriter.build(fimb.map, fimb.totalPages).unsafeRunSync()
     val indexByteBuffer = br.indexByteBuffer
     indexByteBuffer.underlying.flip()
-    println(s"INDEXBYTEBUFFER=${indexByteBuffer}")
+    println(s"INDEXBYTEBUFFER=${indexByteBuffer.underlying}")
+    var flag = true
     while(indexByteBuffer.underlying.hasRemaining) {
       val (gk, pg, off) = indexByteBuffer.getIndexElement
-      println(s"Page=${pg} offset=${off}")
-
-      br.pages.pages(pg.underlying).position(off.underlying)
-      val pbKeySize = br.pages.pages(pg.underlying).getShort
-      val key = new Array[Byte](pbKeySize)
-      br.pages.pages(pg.underlying).get(key)
-    //  println(s"Key=${ByteBuffer.wrap(key).getInt()}")
-      val dataFromOrignalMap = orignalMap.get(gk).getOrElse(Array.empty[Byte])
-      val result = util.Arrays.equals(dataFromOrignalMap, key)
-      if (result) println(s"Result=${result}")
+      println(s"Page=${pg} offset=${off} Predicate=${set.contains(gk)}")
+      flag = set.contains(gk)
     }
-    assert(1==1)
+    assert(flag)
   }
 }
 

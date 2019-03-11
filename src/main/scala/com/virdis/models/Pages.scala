@@ -21,7 +21,7 @@ package com.virdis.models
 
 import java.nio.ByteBuffer
 // should validate inputs???
-private[models]
+
 final class Pages(
                    val noOfPages: Int,
                    val pageSize: Int,
@@ -56,6 +56,7 @@ final class Pages(
   def add(pb: PayloadBuffer): (Page,Offset) = {
     val (page, offset) = calculatePageAndOffSet(pb.underlying.capacity())
     pb.underlying.flip()
+    println(s"DATABUFFER=${buffer}")
     buffer.put(pb.underlying)
     (page, offset)
   }

@@ -25,7 +25,7 @@ import java.nio.ByteBuffer
 import com.virdis.utils.Config
 
 final class MergeBlockResult(config: Config) {
-  var currentTotal = 0
+  /*var currentTotal = 0
   // lets over allocate data buffer and index
   val pages1: Pages           = new Pages(config.pagesFromAllowBlockSize, config.pageSize)
   val pages2: Pages           = new Pages(config.pagesFromAllowBlockSize, config.pageSize)
@@ -45,5 +45,5 @@ final class MergeBlockResult(config: Config) {
 
   @inline def switchPages(payloadBuffer: PayloadBuffer): Boolean =
      currentTotal + payloadBuffer.underlying.capacity() + config.indexKeySize < config.maxAllowedBlockSize
-
+*/
 }

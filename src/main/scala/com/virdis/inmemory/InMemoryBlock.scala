@@ -55,7 +55,7 @@ abstract class InMemoryBlock[F[_], Hash](
     F.ifM(F.delay(maxAllowedBytes.addAndGet(entrySizeInBytes) < config.maxAllowedBlockSize))(
       F.ifM(F.delay(currentPageOffSet.addAndGet(payloadBuffer.underlying.capacity()) <= config.pageSize))(
         F.suspend {
-          println(s"Inner True key=${key} CurrentPageSize=${currentPageOffSet}")
+          println(s"PageOffSet True PageCounter=${pageCounter.get()} CurrentPageSize=${currentPageOffSet}")
           F.delay(cmap.put(key, payloadBuffer)) *> F.delay(FrozenInMemoryBlock.EMPTY)
         },
         F.suspend {
@@ -65,7 +65,7 @@ abstract class InMemoryBlock[F[_], Hash](
               currentPageOffSet.set(0)
               val offset  = currentPageOffSet.addAndGet(payloadBuffer.underlying.capacity())
               val pgCount = pageCounter.incrementAndGet()
-              println(s"PageOffset False pagecounter=${pgCount} Page offSet=${offset}")
+              println(s"PageOffset False PageCounter=${pgCount} Page offSet=${offset}")
               F.delay(cmap.put(key, payloadBuffer)) *> F.delay(FrozenInMemoryBlock.EMPTY)
             }
           )
@@ -96,7 +96,8 @@ abstract class InMemoryBlock[F[_], Hash](
         semaphore =>
           // latch for reassigning the block
           semaphore.withPermit {
-            val block = FrozenInMemoryBlock(cmap, pageCounter.get() )
+            println(s"CMAP SIZEEE =${cmap.size()}")
+            val block = FrozenInMemoryBlock(cmap, pageCounter.get() + 1)
             pageCounter.set(0)
             currentPageOffSet.set(0)
             maxAllowedBytes.set(0)
@@ -112,7 +113,11 @@ abstract class InMemoryBlock[F[_], Hash](
   //TODO change this to add FIMB to a queue
   def add(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]): F[FrozenInMemoryBlock] = {
     for {
-      genratedKey  <- F.delay(hasher.hash(key.duplicate()))
+      genratedKey  <- F.delay{
+        val duplicateKey = key.duplicate()
+        duplicateKey.flip()
+        hasher.hash(duplicateKey)
+      }
       fiber        <- T.start(add0(genratedKey.underlying, PayloadBuffer.fromKeyValue(key, value), guard))
       fimb         <- fiber.join
     } yield fimb

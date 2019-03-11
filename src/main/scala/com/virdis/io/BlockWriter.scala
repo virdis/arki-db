@@ -32,14 +32,16 @@ final class BlockWriter[F[_]](config: Config)(
 
   private final def build0(
                             map: java.util.NavigableMap[Long, PayloadBuffer],
-                            totalPages: Int)= {
+                            totalPages: Int
+                          )= {
     val keySet          = map.navigableKeySet()
     val iterator        = keySet.iterator()
     val indexBuffer     = new IndexByteBuffer(ByteBuffer.allocateDirect(keySet.size() * config.indexKeySize))
+    println(s"NO OF KEYs=${keySet.size()} INDEXBUFFER SIZE=${indexBuffer.underlying}")
     val dataBufferSize  = totalPages * config.pageSize
     println(s"TOTAL SIZE=${indexBuffer.underlying.capacity() + dataBufferSize} maxAllowedBlocSize=${config.maxAllowedBlockSize}")
     val dataBuffer      = ByteBuffer.allocateDirect(dataBufferSize)
-    val pages           = new Pages(totalPages, config.pageSize)
+    val pages           = new Pages(totalPages, config.pageSize, dataBuffer)
     while(iterator.hasNext) {
       val key: Long         = iterator.next()
       val pb: PayloadBuffer = map.get(key)
@@ -58,7 +60,7 @@ final class BlockWriter[F[_]](config: Config)(
 
   /////////////////////////////////////////////////////
 
-  def merge0(block1: Block, block2: Block) = {
+/*  def merge0(block1: Block, block2: Block) = {
     val idx1 = block1.index
     val idx2 = block2.index
     val db1 = block1.data
@@ -115,9 +117,9 @@ final class BlockWriter[F[_]](config: Config)(
     } else {
       mg.add(key2, pb2)
     }
-  }
+  }*/
 
-
+/*
   def merge(b1: Block, b2: Block) =
-    C.evalOn(IOThreadFactory.blockingIOPool.executionContext){ F.delay(merge0(b1, b2)) }
+    C.evalOn(IOThreadFactory.blockingIOPool.executionContext){ F.delay(merge0(b1, b2)) }*/
 }
