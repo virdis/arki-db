@@ -25,7 +25,7 @@ import com.virdis.threadpools.IOThreadFactory._
 import cats.effect.{ContextShift, Sync}
 import Constants._
 import cats.{Applicative, Traverse}
-import com.virdis.models.{IndexElement, Offset, Page, Pages}
+import com.virdis.models.{IndexElement, Offset, Page, PageAlignedDataBuffer}
 import cats.syntax.traverse
 import cats.implicits._
 import com.virdis.threadpools.IOThreadFactory

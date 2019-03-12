@@ -53,29 +53,34 @@ class BlockWriterSpec extends BaseSpec {
       array
     }
 
-    def buildFixedLenFrozenMap(
+    def frozenMapForIndex(
                      imb: InMemoryBlock[IO, XXHash64],
                      sem: IO[Semaphore[IO]]
                      ) = {
       def go(fimb: FrozenInMemoryBlock,
              counter: Int,
-             set: mutable.Set[GeneratedKey]
-            ): (FrozenInMemoryBlock, mutable.Set[GeneratedKey]) = {
-        if (!fimb.isEmpty) (fimb, set)
+             genKeySet: mutable.Set[GeneratedKey],
+             keySet: mutable.Set[ByteBuffer]
+            ): (FrozenInMemoryBlock, mutable.Set[GeneratedKey], mutable.Set[ByteBuffer]) = {
+        if (!fimb.isEmpty) (fimb, genKeySet, keySet)
         else {
-          val keyBytes = ByteBuffer.allocate(4)
-          val valueBytes = ByteBuffer.allocate(4)
+          val keyBytes     = ByteBuffer.allocate(4)
+          val valueBytes   = ByteBuffer.allocate(4)
           val bytesfromKey = ByteBuffer.allocate(4)
+          val kBytes       = ByteBuffer.allocate(4)
           keyBytes.putInt(counter)
           valueBytes.putInt(counter)
           bytesfromKey.putInt(counter)
+          kBytes.putInt(counter)
+          kBytes.flip()
+          keySet.add(kBytes)
           bytesfromKey.flip()
           val genKey = imb.hasher.hash(bytesfromKey)
-          set.add(genKey)
-          go(imb.add(keyBytes, valueBytes, sem).unsafeRunSync(), counter+1, set)
+          genKeySet.add(genKey)
+          go(imb.add(keyBytes, valueBytes, sem).unsafeRunSync(), counter+1, genKeySet, keySet)
         }
       }
-      go(FrozenInMemoryBlock.EMPTY, 0, new mutable.HashSet[GeneratedKey]())
+      go(FrozenInMemoryBlock.EMPTY, 0, new mutable.HashSet[GeneratedKey](), new mutable.HashSet[ByteBuffer]())
     }
     val imb = new InMemoryBlock[IO, XXHash64](config, hasher) {}
   }
@@ -83,20 +88,42 @@ class BlockWriterSpec extends BaseSpec {
   it should "build Block from FrozenInMemoryBlock, should build Index" in {
     val f = new Fixture
     import f._
-    val (fimb, set) = buildFixedLenFrozenMap(imb, semaphore)
-    println(s"FIMB totalPages=${fimb.totalPages} ORIGNALSET SIZE=${set.size}")
+    val (fimb, set, _) = frozenMapForIndex(imb, semaphore)
     val br = imb.blockWriter.build(fimb.map, fimb.totalPages).unsafeRunSync()
     val indexByteBuffer = br.indexByteBuffer
     indexByteBuffer.underlying.flip()
-    println(s"INDEXBYTEBUFFER=${indexByteBuffer.underlying}")
     var flag = true
     while(indexByteBuffer.underlying.hasRemaining) {
       val (gk, pg, off) = indexByteBuffer.getIndexElement
-      println(s"Page=${pg} offset=${off} Predicate=${set.contains(gk)}")
-      flag = set.contains(gk)
+      flag &&= set.contains(gk)
     }
     assert(flag)
   }
+    it should "build Block from FrozenInMemoryBlock, should build PageAlignedDataBuffer" in {
+      val f = new Fixture
+      import f._
+      val (fimb, genSet, keySet) = frozenMapForIndex(imb, semaphore)
+      val br = imb.blockWriter.build(fimb.map, fimb.totalPages).unsafeRunSync()
+      val indexByteBuffer = br.indexByteBuffer
+      val dataBuffer = br.underlying.buffer
+      indexByteBuffer.underlying.flip()
+      var flag = true
+       while(indexByteBuffer.underlying.hasRemaining) {
+         val (gk, pg, off) = indexByteBuffer.getIndexElement
+         val address = (config.pageSize * pg.underlying) + off.underlying
+         dataBuffer.position(address)
+         val keySize = dataBuffer.getShort
+         val key = new Array[Byte](keySize)
+         dataBuffer.get(key)
+         val valueSize = dataBuffer.getShort()
+         val value = new Array[Byte](valueSize)
+         dataBuffer.get(value)
+         val isDeleted = dataBuffer.get()
+         flag &&= keySet.contains(ByteBuffer.wrap(key))
+         flag &&= keySet.contains(ByteBuffer.wrap(value))
+      }
+      assert(flag)
+    }
 }
 
 

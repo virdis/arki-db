@@ -37,23 +37,20 @@ final class BlockWriter[F[_]](config: Config)(
     val keySet          = map.navigableKeySet()
     val iterator        = keySet.iterator()
     val indexBuffer     = new IndexByteBuffer(ByteBuffer.allocateDirect(keySet.size() * config.indexKeySize))
-    println(s"NO OF KEYs=${keySet.size()} INDEXBUFFER SIZE=${indexBuffer.underlying}")
     val dataBufferSize  = totalPages * config.pageSize
-    println(s"TOTAL SIZE=${indexBuffer.underlying.capacity() + dataBufferSize} maxAllowedBlocSize=${config.maxAllowedBlockSize}")
     val dataBuffer      = ByteBuffer.allocateDirect(dataBufferSize)
-    val pages           = new Pages(totalPages, config.pageSize, dataBuffer)
+    val pages           = new PageAlignedDataBuffer(totalPages, config.pageSize, dataBuffer)
     while(iterator.hasNext) {
       val key: Long         = iterator.next()
       val pb: PayloadBuffer = map.get(key)
       // we dont need bound check here since the map will be under maxAllowedBlockSize
       val (page,offSet) = pages.add(pb)
-      println(s"Page=${page} OffSet=${offSet}")
       indexBuffer.add(GeneratedKey(key), page, offSet)
     }
     BlockWriterResult(pages, indexBuffer)
   }
 
-  final def build(map: java.util.NavigableMap[Long, PayloadBuffer], pages: Int)() = {
+  final def build(map: java.util.NavigableMap[Long, PayloadBuffer], pages: Int)(): F[BlockWriterResult] = {
     C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(F.delay(build0(map, pages)))
   }
 

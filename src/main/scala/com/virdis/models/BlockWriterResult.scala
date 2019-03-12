@@ -19,5 +19,5 @@
 
 package com.virdis.models
 
-final case class BlockWriterResult(pages: Pages, indexByteBuffer: IndexByteBuffer)
+final case class BlockWriterResult(underlying: PageAlignedDataBuffer, indexByteBuffer: IndexByteBuffer)
 

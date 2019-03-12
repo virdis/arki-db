@@ -22,7 +22,7 @@ package com.virdis.models
 import java.nio.ByteBuffer
 
 final case class DataByteBuffer(val underlying: ByteBuffer) extends AnyVal {
-  def getDataBufferElement(idx: Int) = {
+  def getDataBufferElement(idx: Int): PayloadBuffer = {
     underlying.position(idx)
     val keySize = underlying.getShort
     val key = new Array[Byte](keySize)

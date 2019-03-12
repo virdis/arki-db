@@ -22,7 +22,7 @@ package com.virdis.models
 import java.nio.ByteBuffer
 // should validate inputs???
 
-final class Pages(
+final class PageAlignedDataBuffer(
                    val noOfPages: Int,
                    val pageSize: Int,
                    val buffer: ByteBuffer
@@ -31,7 +31,6 @@ final class Pages(
   private var page = 0
 
   def calculatePageAndOffSet(payloadSize: Int): (Page, Offset) = {
-    // TODO this is wrong we need to move the data buffer pointer once the page counter is incremented
     if (currentOffSet + payloadSize <= pageSize) {
       val _currentOffSet = currentOffSet
       currentOffSet += payloadSize
@@ -56,7 +55,6 @@ final class Pages(
   def add(pb: PayloadBuffer): (Page,Offset) = {
     val (page, offset) = calculatePageAndOffSet(pb.underlying.capacity())
     pb.underlying.flip()
-    println(s"DATABUFFER=${buffer}")
     buffer.put(pb.underlying)
     (page, offset)
   }
