@@ -24,7 +24,7 @@ import java.nio.ByteBuffer
 import cats.effect.{ContextShift, Sync}
 import com.virdis.utils.Utils
 
-case class Block(
+final case class Block(
                 data:  DataByteBuffer,
                 index: IndexByteBuffer,
                 bloomFilter: ByteBuffer,
@@ -32,7 +32,7 @@ case class Block(
                 ) {
 
   def clean[F[_]]()(implicit F: Sync[F],
-                    Cs: ContextShift[F]) = {
+                    Cs: ContextShift[F]): F[Unit] = {
     Utils.freeDirectBuffer[F](data.underlying)(F, Cs)
     Utils.freeDirectBuffer[F](index.underlying)(F, Cs)
     Utils.freeDirectBuffer[F](bloomFilter)(F, Cs)
