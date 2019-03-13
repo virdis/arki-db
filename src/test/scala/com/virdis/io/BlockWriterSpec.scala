@@ -130,9 +130,7 @@ class BlockWriterSpec extends BaseSpec {
 
 
   }
-
-/*
-
+  
   it should "build Block from FrozenInMemoryBlock, should build Index" in {
     val f = new Fixture
     import f._
@@ -172,7 +170,7 @@ class BlockWriterSpec extends BaseSpec {
       flag &&= keySet.contains(ByteBuffer.wrap(value))
     }
     assert(flag)
-  }*/
+  }
 
   it should "build Block from FrozenInMemoryBlock frozenMapWithRandomData(), should build Index" in {
     val f = new Fixture
