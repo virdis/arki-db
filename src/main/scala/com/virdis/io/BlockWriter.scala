@@ -45,6 +45,7 @@ final class BlockWriter[F[_]](config: Config)(
       val pb: PayloadBuffer = map.get(key)
       // we dont need bound check here since the map will be under maxAllowedBlockSize
       val (page,offSet) = pages.add(pb)
+      println(s"GENKEY+${key}")
       indexBuffer.add(GeneratedKey(key), page, offSet)
     }
     BlockWriterResult(pages, indexBuffer)

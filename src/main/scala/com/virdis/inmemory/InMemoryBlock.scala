@@ -22,13 +22,15 @@ package com.virdis.inmemory
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentSkipListMap
 import java.util.concurrent.atomic.AtomicInteger
+
 import cats.effect._
 import cats.effect.concurrent.Semaphore
 import com.virdis.hashing.Hasher
-import com.virdis.models.{FrozenInMemoryBlock, PayloadBuffer}
+import com.virdis.models.{FrozenInMemoryBlock, KeyByteVector, PayloadBuffer, ValueByteVector}
 import com.virdis.utils.Config
 import cats.implicits._
 import com.virdis.io.BlockWriter
+import scodec.bits.ByteVector
 
 abstract class InMemoryBlock[F[_], Hash](
                                   val config: Config,
@@ -48,30 +50,29 @@ abstract class InMemoryBlock[F[_], Hash](
             payloadBuffer: PayloadBuffer,
             guard: F[Semaphore[F]]
           ): F[FrozenInMemoryBlock] = {
-
-    val entrySizeInBytes = config.indexKeySize + payloadBuffer.underlying.capacity()
-    println(s"Key=${key} EntrySizeInBytes=${entrySizeInBytes} PayloadBuffer=${payloadBuffer.underlying.capacity()}")
+    val payloadSize      = payloadBuffer.underlying.size.toInt
+    val entrySizeInBytes = config.indexKeySize + payloadSize
+    println(s"Key=${key} EntrySizeInBytes=${entrySizeInBytes} PayloadBuffer=${payloadSize}")
     F.ifM(F.delay(maxAllowedBytes.addAndGet(entrySizeInBytes) < config.maxAllowedBlockSize))(
-      F.ifM(F.delay(currentPageOffSet.addAndGet(payloadBuffer.underlying.capacity()) <= config.pageSize))(
+      F.ifM(F.delay(currentPageOffSet.addAndGet(payloadSize) <= config.pageSize))(
         F.suspend {
           println(s"PAGEOFFSET TRUE CMAP=${cmap.size()} MaxAllowedBytes=${maxAllowedBytes.get()} PageCounter=${pageCounter.get()} CurrentPageOff=${currentPageOffSet.get()}")
           F.delay(cmap.put(key, payloadBuffer)) *> F.delay(FrozenInMemoryBlock.EMPTY)
         },
         F.suspend {
           F.ifM(F.delay(maxAllowedBytes.get() + config.pageSize > config.maxAllowedBlockSize))(
-            resetCounters(key, payloadBuffer, guard, entrySizeInBytes),
+            resetCounters(key, payloadBuffer, guard, entrySizeInBytes, payloadSize),
             F.suspend {
-
               println(s"MAX+PAGESIZE CMAP=${cmap.size()} MaxAllowedBytes=${maxAllowedBytes.get()} PageCounter=${pageCounter.get()} CurrentPageOff=${currentPageOffSet.get()}")
               currentPageOffSet.set(0)
-              currentPageOffSet.addAndGet(payloadBuffer.underlying.capacity())
+              currentPageOffSet.addAndGet(payloadSize)
               pageCounter.incrementAndGet()
               F.delay(cmap.put(key, payloadBuffer)) *> F.delay(FrozenInMemoryBlock.EMPTY)
             }
           )
         }
       ),
-      resetCounters(key, payloadBuffer, guard, entrySizeInBytes)
+      resetCounters(key, payloadBuffer, guard, entrySizeInBytes, payloadSize)
       )
   }
 
@@ -88,7 +89,8 @@ abstract class InMemoryBlock[F[_], Hash](
                              key: Long,
                              payloadBuffer: PayloadBuffer,
                              guard: F[Semaphore[F]],
-                             entrySizeInBytes: Int
+                             entrySizeInBytes: Int,
+                             payloadSize: Int
                            ): F[FrozenInMemoryBlock] = {
     F.suspend {
       F.flatMap(guard) {
@@ -101,7 +103,7 @@ abstract class InMemoryBlock[F[_], Hash](
             pageCounter.set(0)
             currentPageOffSet.set(0)
             maxAllowedBytes.set(0)
-            val offset = currentPageOffSet.addAndGet(payloadBuffer.underlying.capacity())
+            val offset = currentPageOffSet.addAndGet(payloadSize)
             maxAllowedBytes.addAndGet(entrySizeInBytes)
             cmap = new ConcurrentSkipListMap[Long, PayloadBuffer]()
             F.delay(cmap.put(key, payloadBuffer)) *> F.delay(block)
@@ -114,15 +116,17 @@ abstract class InMemoryBlock[F[_], Hash](
   def add(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]): F[FrozenInMemoryBlock] = {
     for {
       genratedKey  <- F.delay {
-        val duplicateKey = key.duplicate()
-        duplicateKey.flip()
-        hasher.hash(duplicateKey)
+        hasher.hash(key.array())
       }
-      fiber        <- T.start(add0(genratedKey.underlying, PayloadBuffer.fromKeyValue(key, value), guard))
+      (k, v) = makeByteVectors(key, value)
+      fiber        <- T.start(add0(genratedKey.underlying, PayloadBuffer.fromKeyValue(k, v), guard))
       fimb         <- fiber.join
     } yield fimb
 
   }
 
+  private def makeByteVectors(k: ByteBuffer, v: ByteBuffer) = {
+    (KeyByteVector(ByteVector.view(k), k.capacity()), ValueByteVector(ByteVector.view(v), v.capacity()))
+  }
 }
 

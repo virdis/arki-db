@@ -29,7 +29,7 @@ object Constants {
   final val SIXTY_FOUR_MB_BYTES = 67108864 // 64 MB
   final val INDEX_KEY_SIZE      = 16 // KEY:PAGENO:OFFSET
   // TODO ADD DOCUMENTATION FOR THIS CHOICE
-  final val BLOOM_FILTER_SIZE   = 1024 // 1MB
+  final val BLOOM_FILTER_SIZE   = 524288 // 0.5 MB // 0.01 error rate
   final val FOOTER_SIZE         = 48 // TIMESTAMP:MIN:MAX:INDEXSTART:NUMBEROFKEYS:BFSTART:BLOCKNUMBER
 
   final val LONG_SIZE_IN_BYTES     = java.lang.Long.BYTES

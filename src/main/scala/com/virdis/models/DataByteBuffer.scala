@@ -21,6 +21,4 @@ package com.virdis.models
 
 import java.nio.ByteBuffer
 
-final case class DataByteBuffer(val underlying: ByteBuffer) extends AnyVal {
-
-}
+final case class DataByteBuffer(val underlying: ByteBuffer) extends AnyVal

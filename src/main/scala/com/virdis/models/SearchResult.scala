@@ -19,7 +19,17 @@
 
 package com.virdis.models
 
-case class GeneratedKey(underlying: Long)   extends AnyVal
+import java.nio.{ByteBuffer, ByteOrder}
+
+case class GeneratedKey(underlying: Long)   extends AnyVal {
+  def toBuffer: ByteBuffer = {
+    val b = ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putLong(underlying)
+    b.flip()
+    b
+  }
+
+}
+
 case class Page(underlying: Int)   extends AnyVal
 
 /**

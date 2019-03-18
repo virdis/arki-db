@@ -22,27 +22,32 @@ package com.virdis.models
 import java.nio.ByteBuffer
 
 import com.virdis.utils.Constants
+import scodec.bits._
 
 /**
   * Represents KEYSIZE:KEY:VALUESIZE:VALUE:DELETED
   * @param payload
   */
-sealed abstract case class PayloadBuffer(underlying: ByteBuffer)
+
+case class KeyByteVector(underlying: ByteVector, size: Int)
+case class ValueByteVector(underlying: ByteVector, size: Int)
+
+sealed abstract case class PayloadBuffer(underlying: ByteVector)
 
 object PayloadBuffer {
 
-  def fromKeyValue(key: ByteBuffer, value: ByteBuffer): PayloadBuffer = {
-    val buffer = ByteBuffer.allocate(5 + key.capacity() + value.capacity() )
-    key.flip()
-    value.flip()
-    buffer.putShort(key.capacity().toShort)
-    buffer.put(key)
-    buffer.putShort(value.capacity().toShort)
-    buffer.put(value)
-    buffer.put(Constants.TRUE_BYTES)
-    new PayloadBuffer(buffer){}
+  def fromKeyValue(key: KeyByteVector, value: ValueByteVector): PayloadBuffer = {
+    val keySizeBytesVector   = ByteVector.fromShort(s = key.size.toShort, ordering = ByteOrdering.BigEndian)
+    val valueSizeBytesVector = ByteVector.fromShort(s = value.size.toShort, ordering = ByteOrdering.BigEndian)
+    val isDeleted            = ByteVector.fromByte(Constants.FALSE_BYTES)
+    new PayloadBuffer(
+      keySizeBytesVector ++ key.underlying ++ valueSizeBytesVector ++ value.underlying ++ isDeleted
+    ){}
   }
 
-  def fromBuffer(buff: ByteBuffer): PayloadBuffer = new PayloadBuffer(buff) {}
+  def fromBuffer(buff: ByteBuffer): PayloadBuffer = {
+    buff.flip()
+    new PayloadBuffer(ByteVector.view(buff)) {}
+  }
 }
 

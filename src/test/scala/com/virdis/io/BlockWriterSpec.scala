@@ -27,10 +27,11 @@ import cats.effect.concurrent.Semaphore
 import com.virdis.BaseSpec
 import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
-import com.virdis.models.{FrozenInMemoryBlock, GeneratedKey, PayloadBuffer}
+import com.virdis.models._
 import com.virdis.utils.Config
 import net.jpountz.xxhash.XXHash64
 import org.scalacheck.Gen
+import scodec.bits.ByteVector
 
 import scala.collection.mutable
 import scala.util.Random
@@ -73,16 +74,16 @@ class BlockWriterSpec extends BaseSpec {
             ): (FrozenInMemoryBlock, mutable.Set[GeneratedKey], mutable.Set[ByteBuffer]) = {
         if (!fimb.isEmpty) (fimb, genKeySet, keySet)
         else {
+          //TODO REPLACE BUFFER WITH ARRAYS
           val keyBytes = ByteBuffer.allocate(4)
           val valueBytes = ByteBuffer.allocate(4)
           val bytesfromKey = ByteBuffer.allocate(4)
-          val kBytes = ByteBuffer.allocate(4)
           keyBytes.putInt(counter)
           valueBytes.putInt(counter)
+          keyBytes.flip()
+          valueBytes.flip()
           bytesfromKey.putInt(counter)
-          kBytes.putInt(counter)
-          kBytes.flip()
-          keySet.add(kBytes)
+          keySet.add(ByteBuffer.wrap(keyBytes.array()))
           bytesfromKey.flip()
           val genKey = imb.hasher.hash(bytesfromKey)
           genKeySet.add(genKey)
@@ -104,9 +105,10 @@ class BlockWriterSpec extends BaseSpec {
       val random = new Random()
       def go(fimb: FrozenInMemoryBlock,
              counter: Int,
-             set: mutable.Set[GeneratedKey]
-            ): (FrozenInMemoryBlock, mutable.Set[GeneratedKey]) = {
-        if (!fimb.isEmpty) (fimb, set)
+             set: mutable.Set[GeneratedKey],
+             keySet: mutable.Set[ByteBuffer]
+            ): (FrozenInMemoryBlock, mutable.Set[GeneratedKey], mutable.Set[ByteBuffer]) = {
+        if (!fimb.isEmpty) (fimb, set, keySet)
         else {
           val counter = random.nextInt(26)
           val keySize = 27 - counter
@@ -115,22 +117,29 @@ class BlockWriterSpec extends BaseSpec {
           val keyBytes = random.nextString(keySize)
           val valueBytes = random.nextString(valueSize)
           val kBuffer = ByteBuffer.wrap(keyBytes.getBytes)
+          val keyByteVector = KeyByteVector(ByteVector.view(kBuffer), kBuffer.capacity())
           val vBuffer = ByteBuffer.wrap(valueBytes.getBytes)
+          val valueByteVector = ValueByteVector(ByteVector.view(vBuffer), vBuffer.capacity())
           val genKey = imb.hasher.hash(keyBytes.getBytes)
           set.add(genKey)
+          keySet.add(ByteBuffer.wrap(keyBytes.getBytes))
           println(s"GenKey=${genKey} KeyBuffer=${kBuffer} ValueBuffer=${vBuffer}")
           go(imb.add0(genKey.underlying,
             PayloadBuffer.fromKeyValue(
-              kBuffer,
-              vBuffer), sem).unsafeRunSync(), counter + 1, set)
+              keyByteVector,
+              valueByteVector), sem).unsafeRunSync(), counter + 1, set, keySet)
         }
       }
-      go(FrozenInMemoryBlock.EMPTY, 0, new mutable.HashSet[GeneratedKey]())
+      go(
+        FrozenInMemoryBlock.EMPTY,
+        0,
+        new mutable.HashSet[GeneratedKey](),
+        new mutable.HashSet[ByteBuffer]()
+      )
     }
 
 
   }
-  
   it should "build Block from FrozenInMemoryBlock, should build Index" in {
     val f = new Fixture
     import f._
@@ -139,13 +148,15 @@ class BlockWriterSpec extends BaseSpec {
     val indexByteBuffer = br.indexByteBuffer
     indexByteBuffer.underlying.flip()
     var flag = true
+    set.foreach(println)
     while (indexByteBuffer.underlying.hasRemaining) {
       val (gk, pg, off) = indexByteBuffer.getIndexElement
+      println(s"OFFSET=${off} PAGE=${pg} GeneratedKey=${gk}")
+      println(s"PREDICATE=${set.contains(gk)}")
       flag &&= set.contains(gk)
     }
     assert(flag)
   }
-
   it should "build Block from FrozenInMemoryBlock, should build PageAlignedDataBuffer" in {
     val f = new Fixture
     import f._
@@ -175,7 +186,7 @@ class BlockWriterSpec extends BaseSpec {
   it should "build Block from FrozenInMemoryBlock frozenMapWithRandomData(), should build Index" in {
     val f = new Fixture
     import f._
-    val (fimb, set) = frozenMapWithRandomData(imb128, semaphore)
+    val (fimb, set, _) = frozenMapWithRandomData(imb128, semaphore)
     val br = imb128.blockWriter.build(fimb.map, fimb.totalPages).unsafeRunSync()
     val indexByteBuffer = br.indexByteBuffer
     indexByteBuffer.underlying.flip()
@@ -183,6 +194,36 @@ class BlockWriterSpec extends BaseSpec {
     while (indexByteBuffer.underlying.hasRemaining) {
       val (gk, pg, off) = indexByteBuffer.getIndexElement
       flag &&= set.contains(gk)
+    }
+    assert(flag)
+  }
+
+  it should "build Block from FrozenInMemoryBlock frozenMapWithRandomData(), should build PageAlignedDataBuffer" in {
+    val f = new Fixture
+    import f._
+    val (fimb, genSet, keySet) = frozenMapWithRandomData(imb128, semaphore)
+    val br = imb128.blockWriter.build(fimb.map, fimb.totalPages).unsafeRunSync()
+    val indexByteBuffer = br.indexByteBuffer
+    val dataBuffer = br.underlying.buffer
+    indexByteBuffer.underlying.flip()
+    var flag = true
+    while (indexByteBuffer.underlying.hasRemaining) {
+      val (gk, pg, off) = indexByteBuffer.getIndexElement
+      println(s"PAGE=${pg} OFFSET=${off}")
+      val address = (config128.pageSize * pg.underlying) + off.underlying
+      dataBuffer.position(address)
+      val keySize = dataBuffer.getShort
+      val key = new Array[Byte](keySize)
+      dataBuffer.get(key)
+      val valueSize = dataBuffer.getShort()
+      val value = new Array[Byte](valueSize)
+      dataBuffer.get(value)
+      val isDeleted = dataBuffer.get()
+      println(s"PayLoadBuffer=${ByteBuffer.wrap(key++value)} " +
+        s"KeySize=${keySize}  Key=${ByteBuffer.wrap(key)}" +
+        s"ValueSize=${valueSize} Value=${ByteBuffer.wrap(value)}" +
+        s"isDeleted=${isDeleted}")
+      flag &&= keySet.contains(ByteBuffer.wrap(key))
     }
     assert(flag)
   }
