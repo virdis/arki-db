@@ -40,6 +40,7 @@ object Constants {
   final val FALSE_BYTES            = 0.toByte
 
   final val XXHASH_SEED            = 0x9747b28b
+  final val BLOOM_SEED             = 0x9747b28c
 
   object Test {
     final val TEST_PG_SIZE    = 64 // bytes
