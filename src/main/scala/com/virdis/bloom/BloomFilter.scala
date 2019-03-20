@@ -21,24 +21,28 @@ package com.virdis.bloom
 import java.nio.{ByteBuffer, ByteOrder}
 
 import com.virdis.models.GeneratedKey
-import com.virdis.utils.Constants
-import net.jpountz.xxhash.XXHashFactory
+import com.virdis.utils.{Config, Constants}
+import net.jpountz.xxhash.{XXHash64, XXHashFactory}
 import scodec.bits.BitVector
 
-abstract class BloomFilter[A](noOfBits: Int, noOfHashes: Int) {
-  final val hasher     = XXHashFactory.fastestInstance().hash64()
+trait BloomFilter[A] {
   def byteBuffer: ByteBuffer
   def add(generatedKey: GeneratedKey)
   def contains(generatedKey: GeneratedKey): Boolean
+
+  def hashes: Int      = config.bloomFilterHashes
+  def bits: Int        = config.bloomFilterBits
+  def hasher: XXHash64 = XXHashFactory.fastestInstance().hash64()
+  val config: Config   = new Config()
 }
 
 object BloomFilter {
 
   def apply[A](implicit eve: BloomFilter[A]): BloomFilter[A] = eve
 
-  implicit def bitVectorBloom(bits: Int, hashes: Int): BloomFilter[BitVector] = new BloomFilter[BitVector](bits, hashes) {
+  implicit val bitVectorBloom: BloomFilter[BitVector] = new BloomFilter[BitVector] {
 
-    override def byteBuffer: ByteBuffer = ByteBuffer.allocateDirect(bits/8) // TODO check this
+    override def byteBuffer: ByteBuffer = ByteBuffer.allocateDirect(bits/8) // allocate bytes
 
     private var bitVector: BitVector = BitVector.view(byteBuffer)
 
@@ -73,9 +77,11 @@ object BloomFilter {
       }
       result
     }
+
+
   }
 
-  implicit def byteBufferBloom(bits: Int, hashes: Int): BloomFilter[ByteBuffer] = new BloomFilter[ByteBuffer](bits, hashes) {
+  implicit val byteBufferBloom: BloomFilter[ByteBuffer] = new BloomFilter[ByteBuffer]{
 
     override final val byteBuffer = ByteBuffer.allocateDirect(bits * 8)
 

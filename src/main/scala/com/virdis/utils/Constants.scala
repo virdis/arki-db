@@ -29,7 +29,24 @@ object Constants {
   final val SIXTY_FOUR_MB_BYTES = 67108864 // 64 MB
   final val INDEX_KEY_SIZE      = 16 // KEY:PAGENO:OFFSET
   // TODO ADD DOCUMENTATION FOR THIS CHOICE
-  final val BLOOM_FILTER_SIZE   = 524288 // 0.5 MB // 0.01 error rate
+  //https://www.di-mgt.com.au/bloom-calculator.html
+  /**
+    * Given any 3 parameters out of (n, m, p, k), compute the 4th; or, given any two of (n, m, p) compute the 3rd plus the optimum k.
+    *
+    * n=
+    * 2169467
+    * number of items in set
+    * m=
+    * number of bits in filter (optional form b^e, e.g. 2^16 = 65536)
+    * k=
+    * 5
+    * number of hash functions
+    * p=
+    * 0.01
+    * probability of a false positive, a real number 0 < p < 1
+    */
+  final val BLOOM_FILTER_BITS   = 21366655 // 2608.2 kB
+  final val BLOOM_FILTER_HASHES = 5
   final val FOOTER_SIZE         = 48 // TIMESTAMP:MIN:MAX:INDEXSTART:NUMBEROFKEYS:BFSTART:BLOCKNUMBER
 
   final val LONG_SIZE_IN_BYTES     = java.lang.Long.BYTES
@@ -41,6 +58,7 @@ object Constants {
 
   final val XXHASH_SEED            = 0x9747b28b
   final val BLOOM_SEED             = 0x9747b28c
+
 
   object Test {
     final val TEST_PG_SIZE    = 64 // bytes

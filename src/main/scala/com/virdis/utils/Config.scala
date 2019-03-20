@@ -18,12 +18,14 @@
  */
 
 package com.virdis.utils
-
+//TODO make it configuarble via external file
 final class Config(
                         final val pageSize: Int          = Constants.PAGE_SIZE,
                         final val blockSize: Int         = Constants.SIXTY_FOUR_MB_BYTES,
-                        final val bloomFilterSize: Int   = Constants.BLOOM_FILTER_SIZE,
-                        final val footerSize: Int        = Constants.FOOTER_SIZE
+                        final val footerSize: Int        = Constants.FOOTER_SIZE,
+                        final val bloomFilterBits: Int   = Constants.BLOOM_FILTER_BITS,
+                        final val bloomFilterHashes: Int = Constants.BLOOM_FILTER_HASHES
+
                       ) {
   def indexKeySize: Int      = Constants.INDEX_KEY_SIZE
   def longSizeInBytes: Int   = Constants.LONG_SIZE_IN_BYTES
@@ -31,7 +33,9 @@ final class Config(
   def shortSizeInBytes: Int  = Constants.SHORT_SIZE_IN_BYTES
   def byteSizeInBytes: Int   = Constants.BYTE_SIZE_IN_BYTES
 
-  final val maxAllowedBlockSize: Int = blockSize - (bloomFilterSize + footerSize) // should be multiple of 2
+  final val bloomSizeInBytes = bloomFilterBits / 8 // Bits -> Bytes
+
+  final val maxAllowedBlockSize: Int = blockSize - (bloomSizeInBytes + footerSize) // should be multiple of 2
   //TODO DOCUMENT WHEN TO USE
   // WHEN ADDING DATA TO IN MEMORY MAP
   final val pagesFromAllowBlockSize: Int = Math.floor(maxAllowedBlockSize / pageSize).toInt
