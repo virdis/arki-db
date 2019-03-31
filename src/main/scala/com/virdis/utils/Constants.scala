@@ -45,7 +45,7 @@ object Constants {
     * 0.01
     * probability of a false positive, a real number 0 < p < 1
     */
-  final val BLOOM_FILTER_BITS   = 21366655 // 2608.2 kB
+  final val BLOOM_FILTER_BITS   = 21366654 // 2610 kB
   final val BLOOM_FILTER_HASHES = 5
   final val FOOTER_SIZE         = 48 // TIMESTAMP:MIN:MAX:INDEXSTART:NUMBEROFKEYS:BFSTART:BLOCKNUMBER
 

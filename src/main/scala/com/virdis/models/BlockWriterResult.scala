@@ -19,5 +19,13 @@
 
 package com.virdis.models
 
-final case class BlockWriterResult(underlying: PageAlignedDataBuffer, indexByteBuffer: IndexByteBuffer)
+import scodec.bits.BitVector
+
+final case class BlockWriterResult(
+                                    underlying: PageAlignedDataBuffer,
+                                    indexByteBuffer: IndexByteBuffer,
+                                    minKey: MinKey,
+                                    maxKey: MaxKey,
+                                    bloomFilter: BitVector
+                                  )
 

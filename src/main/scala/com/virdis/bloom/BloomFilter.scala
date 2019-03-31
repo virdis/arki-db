@@ -23,97 +23,43 @@ import java.nio.{ByteBuffer, ByteOrder}
 import com.virdis.models.GeneratedKey
 import com.virdis.utils.{Config, Constants}
 import net.jpountz.xxhash.{XXHash64, XXHashFactory}
-import scodec.bits.BitVector
+import scodec.bits.{BitVector, ByteOrdering}
 
-trait BloomFilter[A] {
-  def byteBuffer: ByteBuffer
-  def add(generatedKey: GeneratedKey)
-  def contains(generatedKey: GeneratedKey): Boolean
+final class BloomFilter(val bits: Int, val hashes: Int) {
+  // make these configurable
+  val hasher: XXHash64 = XXHashFactory.fastestInstance().hash64()
 
-  def hashes: Int      = config.bloomFilterHashes
-  def bits: Int        = config.bloomFilterBits
-  def hasher: XXHash64 = XXHashFactory.fastestInstance().hash64()
-  val config: Config   = new Config()
-}
-
-object BloomFilter {
-
-  def apply[A](implicit eve: BloomFilter[A]): BloomFilter[A] = eve
-
-  implicit val bitVectorBloom: BloomFilter[BitVector] = new BloomFilter[BitVector] {
-
-    override def byteBuffer: ByteBuffer = ByteBuffer.allocateDirect(bits/8) // allocate bytes
-
-    private var bitVector: BitVector = BitVector.view(byteBuffer)
-
-    override def add(generatedKey: GeneratedKey): Unit = {
-      val hash1 = hasher.hash(generatedKey.toBuffer, Constants.BLOOM_SEED)
-      val bb = ByteBuffer.allocate(Constants.LONG_SIZE_IN_BYTES).order(ByteOrder.BIG_ENDIAN)
-      bb.putLong(hash1)
-      bb.flip()
-      val hash2 = hasher.hash(bb, Constants.BLOOM_SEED)
-      var i = 0
-      while(i < hashes) {
-        val bitToSet = ((hash1 + (i * hash2)) & Long.MaxValue) % bits
-        bitVector = bitVector.update(bitToSet, true)
-        i += 1
-      }
-
+  final def add(bv: BitVector, generatedKey: GeneratedKey): BitVector = {
+    val hash1 = hasher.hash(
+      ByteBuffer.wrap(BitVector.fromLong(generatedKey.underlying, 64, ByteOrdering.BigEndian).toByteArray),
+      Constants.BLOOM_SEED)
+    val hash2 = hasher.hash(
+      ByteBuffer.wrap(BitVector.fromLong(hash1, 64, ByteOrdering.BigEndian).toByteArray),
+      Constants.BLOOM_SEED)
+    var i = 0
+    var bitVector = bv
+    while (i < hashes) {
+      val bitToSet = ((hash1 + (i * hash2)) & Long.MaxValue) % bits
+      bitVector = bitVector.set(bitToSet)
+      i += 1
     }
-
-    override def contains(generatedKey: GeneratedKey): Boolean = {
-      val hash1 = hasher.hash(generatedKey.toBuffer, Constants.BLOOM_SEED)
-      val bb = ByteBuffer.allocate(Constants.LONG_SIZE_IN_BYTES).order(ByteOrder.BIG_ENDIAN)
-      bb.putLong(hash1)
-      bb.flip()
-      val hash2 = hasher.hash(bb, Constants.BLOOM_SEED)
-      var i = 0
-      var result = true
-      while(i < hashes) {
-        val bitToCheck: Long = ((hash1 + (i * hash2)) & Long.MaxValue) % bits
-        val bitValue = bitVector.get(bitToCheck)
-        result = result && bitValue // maybe return early
-        i += 1
-      }
-      result
-    }
-
-
+    bitVector
   }
 
-  implicit val byteBufferBloom: BloomFilter[ByteBuffer] = new BloomFilter[ByteBuffer]{
-
-    override final val byteBuffer = ByteBuffer.allocateDirect(bits * 8)
-
-    override def add(generatedKey: GeneratedKey): Unit = {
-      val hash = hasher.hash(generatedKey.toBuffer, Constants.BLOOM_SEED)
-      val bb = ByteBuffer.allocate(Constants.LONG_SIZE_IN_BYTES).order(ByteOrder.BIG_ENDIAN)
-      bb.putLong(hash)
-      bb.flip()
-      val hash2 = hasher.hash(bb, Constants.BLOOM_SEED)
-      var i = 0
-      while(i < hashes) {
-        val bitToSet: Long = ((hash + (i * hash2)) & Long.MaxValue) % bits
-        byteBuffer.put(bitToSet.toInt, Constants.TRUE_BYTES)
-        i += 1
-      }
+  final def contains(bv: BitVector, generatedKey: GeneratedKey): Boolean = {
+    val hash1 = hasher.hash(generatedKey.toBuffer, Constants.BLOOM_SEED)
+    val bb = ByteBuffer.allocate(Constants.LONG_SIZE_IN_BYTES).order(ByteOrder.BIG_ENDIAN)
+    bb.putLong(hash1)
+    bb.flip()
+    val hash2 = hasher.hash(bb, Constants.BLOOM_SEED)
+    var i = 0
+    var result = true
+    while (i < hashes) {
+      val bitToCheck: Long = ((hash1 + (i * hash2)) & Long.MaxValue) % bits
+      val bitValue = bv.get(bitToCheck)
+      result = result && bitValue // maybe return early
+      i += 1
     }
-
-    override def contains(generatedKey: GeneratedKey): Boolean = {
-      val hash = hasher.hash(generatedKey.toBuffer, Constants.BLOOM_SEED)
-      val bb = ByteBuffer.allocate(Constants.LONG_SIZE_IN_BYTES).order(ByteOrder.BIG_ENDIAN)
-      bb.putLong(hash)
-      bb.flip()
-      val hash2 = hasher.hash(bb, Constants.BLOOM_SEED)
-      var i = 0
-      var result = 1
-      while(i < hashes) {
-        val bitToCheck: Long = ((hash + (i * hash2)) & Long.MaxValue) % bits
-        val bitValue: Byte = byteBuffer.get(bitToCheck.toInt)
-        result = result & bitValue
-        i += 1
-      }
-      result == 1
-    }
+    result
   }
 }

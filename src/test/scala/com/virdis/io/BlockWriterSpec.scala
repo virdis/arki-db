@@ -46,13 +46,11 @@ class BlockWriterSpec extends BaseSpec {
     val config = new Config(
       pageSize = 64,
       blockSize = 640,
-      bloomFilterSize = 0,
       footerSize = 0
     )
     val config128 = new Config(
       pageSize = 128,
       blockSize = 1280,
-      bloomFilterSize = 0,
       footerSize = 0
     )
     val random = new Random()

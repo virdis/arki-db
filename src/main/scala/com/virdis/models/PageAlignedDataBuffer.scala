@@ -55,7 +55,6 @@ final class PageAlignedDataBuffer(
   def add(pb: PayloadBuffer): (Page,Offset) = {
     val payloadBuff = pb.underlying.toByteBuffer
     val (page, offset) = calculatePageAndOffSet(payloadBuff.capacity())
-    println(s"PAGE=${page} OFFSET=${offset} PAYLOADBUFFER=${payloadBuff}")
     buffer.put(payloadBuff)
     (page, offset)
   }

@@ -33,24 +33,25 @@ abstract class BlockIndexSearch[F[_]](implicit F: Sync[F]) {
                                start: Int = 0,
                                end:   Int
 ): SearchResult = {
-    println(s"Search Key = ${searchKey}")
+    searchBuffer.position(0)
+    println(s"Search Key = ${searchKey} IndexBuffer=${searchBuffer}")
     var lo = start
     var hi = end - 1
     var midValue = -1L
     while(lo <= hi) {
-      //   println(s"Buffer Low=${lo} Buffer High=${hi}")
+        println(s"Buffer Low=${lo} Buffer High=${hi}")
       val mid = (hi + lo) / 2
-      // println(s"Buffer Mid=${mid}")
-      val skip = mid * skipKeySize
+       println(s"Buffer Mid=${mid}")
+      val skip     = mid * skipKeySize
       val midValue = searchBuffer.getLong(skip)
       val page     = searchBuffer.getInt(skip + 8)
       val offSet   = searchBuffer.getInt(skip + 8 + 4)
-      // println(s"MidValue=${midValue}")
+      println(s"MidValue=${midValue}")
       if (midValue < searchKey) {
-        // println("Search Key Bigger")
+        println("Search Key Bigger")
         lo = mid + 1
       } else if (midValue > searchKey) {
-        //  println("Search Key Smaller")
+         println("Search Key Smaller")
         hi = mid - 1
       } else {
         return SearchResult(
@@ -71,5 +72,4 @@ abstract class BlockIndexSearch[F[_]](implicit F: Sync[F]) {
                     end:   Int
                   ): F[SearchResult] =
     F.delay(binarySearchByteBuffer0(searchBuffer, searchKey, skipKeySize, start, end))
-
 }

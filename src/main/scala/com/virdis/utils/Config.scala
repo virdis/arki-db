@@ -34,7 +34,7 @@ final class Config(
   def byteSizeInBytes: Int   = Constants.BYTE_SIZE_IN_BYTES
 
   final val bloomSizeInBytes = bloomFilterBits / 8 // Bits -> Bytes
-
+  final val isBloomEnabled: Boolean = bloomFilterBits != 0
   final val maxAllowedBlockSize: Int = blockSize - (bloomSizeInBytes + footerSize) // should be multiple of 2
   //TODO DOCUMENT WHEN TO USE
   // WHEN ADDING DATA TO IN MEMORY MAP
