@@ -47,7 +47,7 @@ object Constants {
     */
   final val BLOOM_FILTER_BITS   = 21366654 // 2610 kB
   final val BLOOM_FILTER_HASHES = 5
-  final val FOOTER_SIZE         = 48 // TIMESTAMP:MIN:MAX:INDEXSTART:NUMBEROFKEYS:BFSTART:BLOCKNUMBER
+  final val FOOTER_SIZE         = 60 // TIMESTAMP:MIN:MAX:DATABUFFEROFFSET:DATABUFFERSIZE:INDEXOFFSET:NUMBEROFKEYS:BFSTART:BLOCKNUMBER
 
   final val LONG_SIZE_IN_BYTES     = java.lang.Long.BYTES
   final val INT_SIZE_IN_BYTES      = java.lang.Integer.BYTES
@@ -55,9 +55,9 @@ object Constants {
   final val BYTE_SIZE_IN_BYTES     = java.lang.Byte.BYTES
   final val TRUE_BYTES             = 1.toByte
   final val FALSE_BYTES            = 0.toByte
-
   final val XXHASH_SEED            = 0x9747b28b
   final val BLOOM_SEED             = 0x9747b28c
+  final val HOME_DIRECTORY         = System.getProperty("user.home") // will work for unix and unix like OSes
 
 
   object Test {

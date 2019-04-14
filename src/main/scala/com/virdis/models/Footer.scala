@@ -19,6 +19,8 @@
 
 package com.virdis.models
 
+import com.virdis.utils.Constants
+
 case class Ts(underlying: Long)                 extends AnyVal
 case class MinKey(underlying: Long)             extends AnyVal
 case class MaxKey(underlying: Long)             extends AnyVal
@@ -26,13 +28,28 @@ case class IndexStartOffSet(underlying: Long)   extends AnyVal
 case class NoOfKeysInIndex(underlying: Int)     extends AnyVal
 case class BFilterStartOffset(underlying: Long) extends AnyVal
 case class BlockNumber(underlying: Int)         extends AnyVal
-
+case class DataBufferOffSet(underlying: Long)   extends AnyVal
+case class DataBufferSize(underlying: Int)      extends AnyVal
 case class Footer(
                  timeStamp: Ts,
                  minKey: MinKey,
                  maxKey: MaxKey,
+                 dataBufferOffSet: DataBufferOffSet,
+                 dataBufferSize: DataBufferSize,
                  indexStartOffSet: IndexStartOffSet,
                  noOfKeysInIndex: NoOfKeysInIndex,
                  bfilterStartOffset: BFilterStartOffset,
                  blockNumber: BlockNumber
-                 )
+                 ) {
+  val noOfBytes: Int = {
+      Constants.LONG_SIZE_IN_BYTES // Ts
+    + Constants.LONG_SIZE_IN_BYTES // MinKey
+    + Constants.LONG_SIZE_IN_BYTES // MaxKey
+    + Constants.LONG_SIZE_IN_BYTES // IndexOffSet
+    + Constants.INT_SIZE_IN_BYTES  // NoOfKeys
+    + Constants.LONG_SIZE_IN_BYTES // BloomFilterOffSet
+    + Constants.INT_SIZE_IN_BYTES  // BlockNumber
+    + Constants.LONG_SIZE_IN_BYTES // DataBufferOffSet
+    + Constants.INT_SIZE_IN_BYTES  // DataBufferSize
+  }
+}

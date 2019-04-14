@@ -54,18 +54,8 @@ class BloomFilterSpec extends BaseSpec {
     var bitVector = BitVector.fill(bf.bits)(false)
     val list = List.fill(5000)(random.nextLong())
     val idxList: List[ListBuffer[Long]] = list.map(getIndices)
-   /* list.zip(idxList).map {
-      case (k, buff) => {
-        bitVector = bf.add(bitVector, GeneratedKey(k))
-        buff.foreach {
-          i =>
-            println(s"Index=${i} IsBitSet=${bitVector.get(i)}")
-        }
-      }
-    }*/
     list.foreach(l => bitVector = bf.add(bitVector, GeneratedKey(l)))
     val bools = list.map(l => bf.contains(bitVector, GeneratedKey(l)))
-    println(s"Bools Size=${bools.size} ")
     Future{ assert(bools.fold(true)(_ && _)) }
 
 

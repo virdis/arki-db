@@ -24,7 +24,8 @@ final class Config(
                         final val blockSize: Int         = Constants.SIXTY_FOUR_MB_BYTES,
                         final val footerSize: Int        = Constants.FOOTER_SIZE,
                         final val bloomFilterBits: Int   = Constants.BLOOM_FILTER_BITS,
-                        final val bloomFilterHashes: Int = Constants.BLOOM_FILTER_HASHES
+                        final val bloomFilterHashes: Int = Constants.BLOOM_FILTER_HASHES,
+                        final val dataDirectory: String  = Constants.HOME_DIRECTORY
 
                       ) {
   def indexKeySize: Int      = Constants.INDEX_KEY_SIZE

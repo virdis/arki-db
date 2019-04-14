@@ -1,3 +1,4 @@
+
 /*
  *
  *     Copyright (c) 2019 Sandeep Virdi
@@ -18,19 +19,25 @@
 
 package com.virdis.io
 
-import scodec.codecs.implicits._
-import java.nio.ByteBuffer
-import scodec.Codec
-import scodec.bits.{BitVector, ByteVector}
+import java.io.{File, RandomAccessFile}
+import java.nio.channels.FileChannel
 
-object TestScodec {
+import cats.effect.{ContextShift, Resource, Sync}
+import com.virdis.utils.Config
 
-  val b = ByteBuffer.allocate(4)
-  b.putInt(1000)
-  b.position(0)
-  val bitsV = BitVector.view(b)
+final class FileF[F[_]](config: Config)(implicit F: Sync[F], C: ContextShift[F]) {
 
-  val res = Codec.decode[Int](bitsV)
+  def name: F[String] = {
+    F.flatMap(F.delay(System.nanoTime()))(ns => F.point(s"${ns}_lvl1.bin"))
+  }
+
+  def file: F[File] = {
+    for {
+      n <- name
+    } yield new File(config.dataDirectory, n)
+  }
+
+  def rFile: RandomAccessFile = ???
 
 
 }
