@@ -122,8 +122,8 @@ final class BlockWriter[F[_]](config: Config)(
   }
 
 
-  def write[F[_]: Sync](blockWriterResult: BlockWriterResult) = {
-    val fileF: FileF[F] = new FileF[F](config)
+  def write(blockWriterResult: BlockWriterResult) = {
+    val fileF: FileF = new FileF(config)
     def makeFile(file: RandomAccessFile): Resource[F, RandomAccessFile] = Resource.fromAutoCloseable(F.delay(file))
     def makeChannel(channel: FileChannel): Resource[F, FileChannel] = Resource.fromAutoCloseable(F.delay(channel))
 
@@ -150,7 +150,7 @@ final class BlockWriter[F[_]](config: Config)(
                             BFilterStartOffset(bfPos),
                             BlockNumber(0)
                           )
-                          writeFooter(mappedByteBuffer, footer)
+                          F.delay(writeFooter(mappedByteBuffer, footer))
                         }
                     }
                 }

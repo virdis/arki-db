@@ -33,20 +33,6 @@ trait CommonFixtures {
  def genListOfSearchKeys(noOfKeys: Int, upBound: Long) = {
    Gen.listOfN[Long](noOfKeys, genSearchKey(upBound))
  }
-  def genFooter: Gen[Footer] = {
-    for {
-      gTs     <- Gen.chooseNum[Long](Long.MinValue, Long.MaxValue)
-      gMax    <- Gen.chooseNum[Long](Long.MinValue, Long.MaxValue)
-      gMin    <- Gen.chooseNum(Long.MinValue, Long.MaxValue).suchThat(_ < gMax)
-      gIdxOff <- Gen.chooseNum(Long.MinValue, Long.MaxValue)
-      gKysIdx <- Gen.chooseNum(Int.MinValue, Int.MaxValue)
-      gbfOff  <- Gen.chooseNum(Long.MinValue, Long.MaxValue)
-      gblckNo <- Gen.choose(Int.MinValue, Int.MaxValue)
-    } yield Footer(
-      timeStamp = Ts(gTs), minKey = MinKey(gMin), maxKey = MaxKey(gMax), indexStartOffSet = IndexStartOffSet(gIdxOff),
-      noOfKeysInIndex = NoOfKeysInIndex(gKysIdx), bfilterStartOffset = BFilterStartOffset(gbfOff), blockNumber = BlockNumber(gblckNo)
-    )
-  }
 
   def genBytes: Gen[Array[Byte]] = {
     val g = Gen.oneOf(

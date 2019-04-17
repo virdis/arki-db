@@ -17,12 +17,6 @@
  *
  */
 
-package com.virdis.io
+package com.virdis.models
 
-import java.io.{File, RandomAccessFile}
-import com.virdis.utils.Config
-
-final class FileF(config: Config) {
-  val name: String = s"${System.nanoTime()}_lvl1.bin"
-  val rFile: RandomAccessFile = new RandomAccessFile(new File(name), "rw")
-}
+case class RangeFValue(name: String, footer: Footer)
