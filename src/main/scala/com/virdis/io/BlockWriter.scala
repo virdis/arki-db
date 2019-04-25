@@ -22,7 +22,7 @@ package com.virdis.io
 import java.io.RandomAccessFile
 import java.nio.{ByteBuffer, MappedByteBuffer}
 import java.nio.channels.FileChannel
-
+import cats.implicits._
 import cats.effect.{ContextShift, Effect, Resource, Sync}
 import com.virdis.bloom.BloomFilter
 import com.virdis.models._
@@ -62,6 +62,7 @@ final class BlockWriter[F[_]](config: Config)(
     BlockWriterResult(
       pages,
       indexBuffer,
+      keySet.size(),
       MinKey(map.firstEntry().getKey),
       MaxKey(map.lastEntry().getKey),
       bitVector
@@ -76,28 +77,29 @@ final class BlockWriter[F[_]](config: Config)(
     val positionData = mappedByteBuffer.position()
     pageAlignedDataBuffer.buffer.flip()
     mappedByteBuffer.put(pageAlignedDataBuffer.buffer)
-    mappedByteBuffer.force()
-    (positionData, pageAlignedDataBuffer.buffer.capacity())
+    (positionData, pageAlignedDataBuffer.buffer.position())
   }
 
-  def writeIndex(mappedByteBuffer: MappedByteBuffer, indexByteBuffer: IndexByteBuffer): (Position, NoOfKeys) = {
+  def writeIndex(
+                  mappedByteBuffer: MappedByteBuffer,
+                  indexByteBuffer: IndexByteBuffer,
+                  noOfKeys: NoOfKeys
+                ): (Position, NoOfKeys) = {
     val indexPosition = mappedByteBuffer.position()
     indexByteBuffer.underlying.flip()
     mappedByteBuffer.put(indexByteBuffer.underlying)
-    mappedByteBuffer.force()
-    (indexPosition, indexByteBuffer.underlying.capacity() / config.indexKeySize)
+    (indexPosition, noOfKeys)
   }
 
   def writeBloomFilter(mappedByteBuffer: MappedByteBuffer, bloomFilter: BitVector): (Position, Size) = {
     val bfilterPosition = mappedByteBuffer.position()
-    val bfBuffer = bloomFilter.toByteBuffer
-    mappedByteBuffer.put(bfBuffer)
-    mappedByteBuffer.force()
+    val bfBuffer = bloomFilter.toByteArray
+    mappedByteBuffer.put(ByteBuffer.wrap(bfBuffer))
     (bfilterPosition, bloomFilter.size.toInt)
   }
 
-  def writeFooter(mappedByteBuffer: MappedByteBuffer, footer: Footer) = {
-    mappedByteBuffer.position(Constants.SIXTY_FOUR_MB_BYTES - footer.noOfBytes)
+  def writeFooter(mappedByteBuffer: MappedByteBuffer, footer: Footer, config: Config) = {
+    mappedByteBuffer.position(config.blockSize - Constants.FOOTER_SIZE)
     val ts = ByteVector.fromLong(footer.timeStamp.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
     val minKey = ByteVector.fromLong(footer.minKey.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
     val maxKey = ByteVector.fromLong(footer.maxKey.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
@@ -108,17 +110,50 @@ final class BlockWriter[F[_]](config: Config)(
     val dataBufferOffset = ByteVector.fromLong(footer.dataBufferOffSet.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
     val dataBufferSize = ByteVector.fromInt(footer.dataBufferSize.underlying, Constants.INT_SIZE_IN_BYTES, ByteOrdering.BigEndian)
 
-    mappedByteBuffer.put(ts.toByteBuffer)
-    mappedByteBuffer.put(minKey.toByteBuffer)
-    mappedByteBuffer.put(maxKey.toByteBuffer)
-    mappedByteBuffer.put(dataBufferOffset.toByteBuffer)
-    mappedByteBuffer.put(dataBufferSize.toByteBuffer)
-    mappedByteBuffer.put(indexOffset.toByteBuffer)
-    mappedByteBuffer.put(noOfKeys.toByteBuffer)
-    mappedByteBuffer.put(bfOffset.toByteBuffer)
-    mappedByteBuffer.put(blockNo.toByteBuffer)
-    mappedByteBuffer.force()
-    ()
+    mappedByteBuffer.put(ts.toArray)
+    mappedByteBuffer.put(minKey.toArray)
+    mappedByteBuffer.put(maxKey.toArray)
+    mappedByteBuffer.put(dataBufferOffset.toArray)
+    mappedByteBuffer.put(dataBufferSize.toArray)
+    mappedByteBuffer.put(indexOffset.toArray)
+    mappedByteBuffer.put(noOfKeys.toArray)
+    mappedByteBuffer.put(bfOffset.toArray)
+    mappedByteBuffer.put(blockNo.toArray)
+
+  }
+
+  def readFooter(mappedByteBuffer: MappedByteBuffer): Footer = {
+    val tsArray = new Array[Byte](Constants.LONG_SIZE_IN_BYTES)
+    mappedByteBuffer.get(tsArray)
+    val minKey = new Array[Byte](Constants.LONG_SIZE_IN_BYTES)
+    mappedByteBuffer.get(minKey)
+    val maxKey = new Array[Byte](Constants.LONG_SIZE_IN_BYTES)
+    mappedByteBuffer.get(maxKey)
+    val dataBufferOffSetArray = new Array[Byte](Constants.LONG_SIZE_IN_BYTES)
+    mappedByteBuffer.get(dataBufferOffSetArray)
+    val dataBufferSizeArray = new Array[Byte](Constants.INT_SIZE_IN_BYTES)
+    mappedByteBuffer.get(dataBufferSizeArray)
+    val indexOffSetArray = new Array[Byte](Constants.LONG_SIZE_IN_BYTES)
+    mappedByteBuffer.get(indexOffSetArray)
+    val noOfKeyArray = new Array[Byte](Constants.INT_SIZE_IN_BYTES)
+    mappedByteBuffer.get(noOfKeyArray)
+    val bfOffSetArray = new Array[Byte](Constants.LONG_SIZE_IN_BYTES)
+    mappedByteBuffer.get(bfOffSetArray)
+    val blockNoArray = new Array[Byte](Constants.INT_SIZE_IN_BYTES)
+    mappedByteBuffer.get(blockNoArray)
+
+    Footer(
+      Ts(ByteBuffer.wrap(tsArray).order(ByteOrdering.BigEndian.toJava).getLong),
+      MinKey(ByteBuffer.wrap(minKey).order(ByteOrdering.BigEndian.toJava).getLong),
+      MaxKey(ByteBuffer.wrap(maxKey).order(ByteOrdering.BigEndian.toJava).getLong),
+      DataBufferOffSet(ByteBuffer.wrap(dataBufferOffSetArray).order(ByteOrdering.BigEndian.toJava).getLong),
+      DataBufferSize(ByteBuffer.wrap(dataBufferSizeArray).order(ByteOrdering.BigEndian.toJava).getInt),
+      IndexStartOffSet(ByteBuffer.wrap(indexOffSetArray).order(ByteOrdering.BigEndian.toJava).getLong),
+      NoOfKeysInIndex(ByteBuffer.wrap(noOfKeyArray).order(ByteOrdering.BigEndian.toJava).getInt),
+      BFilterStartOffset(ByteBuffer.wrap(bfOffSetArray).order(ByteOrdering.BigEndian.toJava).getLong),
+      BlockNumber(ByteBuffer.wrap(blockNoArray).order(ByteOrdering.BigEndian.toJava).getInt)
+    )
+
   }
 
 
@@ -131,10 +166,12 @@ final class BlockWriter[F[_]](config: Config)(
       file =>
         makeChannel(file.getChannel).use {
           channel =>
-            val mappedByteBuffer = channel.map(FileChannel.MapMode.READ_WRITE, 0, Constants.SIXTY_FOUR_MB_BYTES)
+            val mappedByteBuffer = channel.map(FileChannel.MapMode.READ_WRITE, 0, config.blockSize)
+
             F.flatMap(C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(F.delay(writeData(mappedByteBuffer, blockWriterResult.underlying)))){
               case (dataPos, dataSize) =>
-                F.flatMap(C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(F.delay(writeIndex(mappedByteBuffer, blockWriterResult.indexByteBuffer)))){
+                F.flatMap(C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(F.delay(writeIndex(mappedByteBuffer,
+                  blockWriterResult.indexByteBuffer, blockWriterResult.totalNoKeys)))){
                   case (indexPos, noOfKeys) =>
                     F.flatMap(C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(F.delay(writeBloomFilter(mappedByteBuffer, blockWriterResult.bloomFilter)))){
                       case (bfPos, bfSize) =>
@@ -150,11 +187,12 @@ final class BlockWriter[F[_]](config: Config)(
                             BFilterStartOffset(bfPos),
                             BlockNumber(0)
                           )
-                          F.delay(writeFooter(mappedByteBuffer, footer))
+                          writeFooter(mappedByteBuffer, footer, config)
                         }
                     }
                 }
-            }
+            } *> C.evalOn(IOThreadFactory
+              .blockingIOPool.executionContext)(F.delay(mappedByteBuffer.force())) *> F.delay(fileF.name)
         }
     }
   }

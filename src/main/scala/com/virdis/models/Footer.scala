@@ -37,19 +37,7 @@ case class Footer(
                  dataBufferOffSet: DataBufferOffSet,
                  dataBufferSize: DataBufferSize,
                  indexStartOffSet: IndexStartOffSet,
-                 noOfKeysInIndex: NoOfKeysInIndex,
+                 noOfKeysInIndex:  NoOfKeysInIndex,
                  bfilterStartOffset: BFilterStartOffset,
                  blockNumber: BlockNumber
-                 ) {
-  val noOfBytes: Int = {
-      Constants.LONG_SIZE_IN_BYTES // Ts
-    + Constants.LONG_SIZE_IN_BYTES // MinKey
-    + Constants.LONG_SIZE_IN_BYTES // MaxKey
-    + Constants.LONG_SIZE_IN_BYTES // IndexOffSet
-    + Constants.INT_SIZE_IN_BYTES  // NoOfKeys
-    + Constants.LONG_SIZE_IN_BYTES // BloomFilterOffSet
-    + Constants.INT_SIZE_IN_BYTES  // BlockNumber
-    + Constants.LONG_SIZE_IN_BYTES // DataBufferOffSet
-    + Constants.INT_SIZE_IN_BYTES  // DataBufferSize
-  }
-}
+                 )

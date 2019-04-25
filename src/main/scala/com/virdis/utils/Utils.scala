@@ -61,4 +61,15 @@ object Utils {
     (key, value)
   }
 
+  //http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+  @inline def nextPowerOfTwo(i: Int): Int = {
+    var x = i - 1
+    x = x | (x >> 1)
+    x = x | (x >> 2)
+    x = x | (x >> 4)
+    x = x | (x >> 8)
+    x = x | (x >> 16)
+    x + 1
+  }
+
 }

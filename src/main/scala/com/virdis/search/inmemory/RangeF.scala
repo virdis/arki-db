@@ -27,7 +27,7 @@ import scala.collection.mutable
 
 // TODO replace this with Interval Tree
 final class RangeF[F[_]]()(implicit F:  Sync[F], C: Concurrent[F]) {
-  final val ordering = new Ordering[Long] {
+  @inline final val ordering = new Ordering[Long] {
     override def compare(x: Long, y: Long): Int = x compareTo y
   }
   private val fMVarMap = MVar.of[F, mutable.TreeMap[Long, RangeFValue]](

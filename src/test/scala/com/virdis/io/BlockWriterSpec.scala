@@ -19,7 +19,10 @@
 
 package com.virdis.io
 
+import java.io.RandomAccessFile
 import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
+import java.nio.file.{Files, Path, Paths}
 import java.util
 
 import cats.effect.{Concurrent, IO, Sync}
@@ -28,10 +31,10 @@ import com.virdis.BaseSpec
 import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
 import com.virdis.models._
-import com.virdis.utils.Config
+import com.virdis.utils.{Config, Constants}
 import net.jpountz.xxhash.XXHash64
 import org.scalacheck.Gen
-import scodec.bits.ByteVector
+import scodec.bits.{BitVector, ByteVector}
 
 import scala.collection.mutable
 import scala.util.Random
@@ -111,7 +114,6 @@ class BlockWriterSpec extends BaseSpec {
           val counter = random.nextInt(26)
           val keySize = 27 - counter
           val valueSize = counter
-          println(s"KeySize=${keySize} ValueSize=${valueSize}")
           val keyBytes = random.nextString(keySize)
           val valueBytes = random.nextString(valueSize)
           val kBuffer = ByteBuffer.wrap(keyBytes.getBytes)
@@ -121,7 +123,6 @@ class BlockWriterSpec extends BaseSpec {
           val genKey = imb.hasher.hash(keyBytes.getBytes)
           set.add(genKey)
           keySet.add(ByteBuffer.wrap(keyBytes.getBytes))
-          println(s"GenKey=${genKey} KeyBuffer=${kBuffer} ValueBuffer=${vBuffer}")
           go(imb.add0(genKey.underlying,
             PayloadBuffer.fromKeyValue(
               keyByteVector,
@@ -136,6 +137,19 @@ class BlockWriterSpec extends BaseSpec {
       )
     }
 
+    def buildBlockWriterResult = {
+      // build block total of 4 MB // 4194304 bytes
+      val config = new Config(blockSize = 4194304, dataDirectory = ".")//"../../../../resources/")
+      val pgadbBV = ByteBuffer.allocate(1048576)
+      (0 to 500).foreach{i => pgadbBV.putInt(i)}
+      val pgAD = new PageAlignedDataBuffer(10, 100, pgadbBV)
+      val indxBV = ByteBuffer.allocate( 500 * Constants.INDEX_KEY_SIZE)
+      (1 to 500).foreach{i =>
+        indxBV.putLong(i.toLong); indxBV.putInt(i); indxBV.putInt(i)}
+      val ibb = new IndexByteBuffer(indxBV)
+      val bfBV = BitVector.fill(config.bloomFilterBits)(true)
+      (BlockWriterResult(pgAD, ibb, 500, MinKey(1), MaxKey(100L), bfBV), config)
+    }
 
   }
   it should "build Block from FrozenInMemoryBlock, should build Index" in {
@@ -149,8 +163,6 @@ class BlockWriterSpec extends BaseSpec {
     set.foreach(println)
     while (indexByteBuffer.underlying.hasRemaining) {
       val (gk, pg, off) = indexByteBuffer.getIndexElement
-      println(s"OFFSET=${off} PAGE=${pg} GeneratedKey=${gk}")
-      println(s"PREDICATE=${set.contains(gk)}")
       flag &&= set.contains(gk)
     }
     assert(flag)
@@ -207,7 +219,6 @@ class BlockWriterSpec extends BaseSpec {
     var flag = true
     while (indexByteBuffer.underlying.hasRemaining) {
       val (gk, pg, off) = indexByteBuffer.getIndexElement
-      println(s"PAGE=${pg} OFFSET=${off}")
       val address = (config128.pageSize * pg.underlying) + off.underlying
       dataBuffer.position(address)
       val keySize = dataBuffer.getShort
@@ -217,14 +228,34 @@ class BlockWriterSpec extends BaseSpec {
       val value = new Array[Byte](valueSize)
       dataBuffer.get(value)
       val isDeleted = dataBuffer.get()
-      println(s"PayLoadBuffer=${ByteBuffer.wrap(key++value)} " +
-        s"KeySize=${keySize}  Key=${ByteBuffer.wrap(key)}" +
-        s"ValueSize=${valueSize} Value=${ByteBuffer.wrap(value)}" +
-        s"isDeleted=${isDeleted}")
       flag &&= keySet.contains(ByteBuffer.wrap(key))
     }
     assert(flag)
   }
+
+  it should "write BlockWriterResult to disk" in {
+    val f = new Fixture
+    import f._
+    val (bwr, cfg) = buildBlockWriterResult
+    val imb = new InMemoryBlock[IO, XXHash64](cfg, hasher) {}
+    val fileName = imb.blockWriter.write(bwr).unsafeRunSync()
+    val rafAccess = new RandomAccessFile(cfg.dataDirectory+"/"+fileName, "rw")
+    val channel = rafAccess.getChannel.map(FileChannel.MapMode.READ_WRITE, cfg.blockSize - Constants.FOOTER_SIZE, Constants.FOOTER_SIZE)
+    val footer = imb.blockWriter.readFooter(channel)
+    val dataBuffer = rafAccess.getChannel.map(FileChannel.MapMode.READ_ONLY, footer.dataBufferOffSet.underlying, footer.dataBufferSize.underlying)
+    val indexBB = rafAccess.getChannel.map(FileChannel.MapMode.READ_ONLY,
+      footer.indexStartOffSet.underlying, footer.noOfKeysInIndex.underlying * Constants.INDEX_KEY_SIZE)
+    bwr.indexByteBuffer.underlying.flip()
+    bwr.underlying.buffer.flip()
+
+    val bfBB = rafAccess.getChannel.map(FileChannel.MapMode.READ_ONLY, footer.bfilterStartOffset.underlying, cfg.bloomSizeInBytes)
+    Files.deleteIfExists(Paths.get(fileName))
+    assert(
+      bwr.underlying.buffer.equals(dataBuffer)
+      && bwr.indexByteBuffer.underlying.equals(indexBB)
+    )
+  }
+
 }
 
 

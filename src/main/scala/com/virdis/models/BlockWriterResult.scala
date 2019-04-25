@@ -24,6 +24,7 @@ import scodec.bits.BitVector
 final case class BlockWriterResult(
                                     underlying: PageAlignedDataBuffer,
                                     indexByteBuffer: IndexByteBuffer,
+                                    totalNoKeys: Int,
                                     minKey: MinKey,
                                     maxKey: MaxKey,
                                     bloomFilter: BitVector
