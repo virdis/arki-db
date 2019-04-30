@@ -22,17 +22,21 @@ package com.virdis.io
 import java.io.RandomAccessFile
 import java.nio.{ByteBuffer, MappedByteBuffer}
 import java.nio.channels.FileChannel
+
 import cats.implicits._
 import cats.effect.{ContextShift, Effect, Resource, Sync}
 import com.virdis.bloom.BloomFilter
 import com.virdis.models._
+import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.{Config, Constants, Utils}
 import scodec.bits.{BitVector, ByteOrdering, ByteVector}
 
-final class BlockWriter[F[_]](config: Config)(
-  implicit F: Sync[F], C: ContextShift[F]
-){
+final class BlockWriter[F[_]](
+                               config:  Config,
+                               inmemoryF: InMemoryCacheF[F],
+                               rangeF:  RangeF[F]
+                             )(implicit F: Sync[F], C: ContextShift[F]){
 
   type Position = Int
   type Size     = Int
@@ -153,6 +157,15 @@ final class BlockWriter[F[_]](config: Config)(
       BFilterStartOffset(ByteBuffer.wrap(bfOffSetArray).order(ByteOrdering.BigEndian.toJava).getLong),
       BlockNumber(ByteBuffer.wrap(blockNoArray).order(ByteOrdering.BigEndian.toJava).getInt)
     )
+  }
+
+  def updateCaches(bwr: BlockWriterResult, footer: Footer, fileName: String) = {
+    val key = Utils.buildKey(footer)
+    val rangeFValue = RangeFValue(fileName, footer)
+    rangeF.add(rangeFValue)
+    inmemoryF.bloomFilterCache.put(key, bwr.bloomFilter)
+    inmemoryF.indexCache.put(key, bwr.indexByteBuffer.underlying.duplicate())
+    inmemoryF.dataCache.put(key, bwr.underlying.buffer.duplicate())
 
   }
 

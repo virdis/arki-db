@@ -25,7 +25,7 @@ import com.virdis.threadpools.IOThreadFactory._
 import cats.effect.{ContextShift, Sync}
 import Constants._
 import cats.{Applicative, Traverse}
-import com.virdis.models.{IndexElement, Offset, Page, PageAlignedDataBuffer}
+import com.virdis.models.{Footer, IndexElement, Offset, Page, PageAlignedDataBuffer}
 import cats.syntax.traverse
 import cats.implicits._
 import com.virdis.threadpools.IOThreadFactory
@@ -71,5 +71,8 @@ object Utils {
     x = x | (x >> 16)
     x + 1
   }
+
+  @inline final def buildKey(footer: Footer): String =
+    footer.minKey.underlying.toString + footer.maxKey.underlying.toString
 
 }

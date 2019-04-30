@@ -27,6 +27,7 @@ import com.virdis.BaseSpec
 import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
 import com.virdis.models._
+import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import com.virdis.utils.{Config, Constants}
 import net.jpountz.xxhash.XXHash64
 import scodec.bits.{BitVector, ByteOrdering, ByteVector}
@@ -51,7 +52,9 @@ class BlockIndexSearchSpec extends BaseSpec {
       footerSize = 0
     )
     val random = new Random()
-    val imb128 = new InMemoryBlock[IO, XXHash64](config128, hasher) {}
+    val rangeF = new RangeF[IO]
+    val inmemoryF = new InMemoryCacheF[IO](config128)
+    val imb128 = new InMemoryBlock[IO, XXHash64](config128, inmemoryF, rangeF, hasher) {}
     val bis    = new BlockIndexSearch[IO]() {}
 
     def frozenMapForIndex(

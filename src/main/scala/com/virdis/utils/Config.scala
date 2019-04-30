@@ -25,7 +25,10 @@ final class Config(
                         final val footerSize: Int        = Constants.FOOTER_SIZE,
                         final val bloomFilterBits: Int   = Constants.BLOOM_FILTER_BITS,
                         final val bloomFilterHashes: Int = Constants.BLOOM_FILTER_HASHES,
-                        final val dataDirectory: String  = Constants.HOME_DIRECTORY
+                        final val dataDirectory: String  = Constants.HOME_DIRECTORY,
+                        final val bfCacheSize: Long      = (Constants.BLOOM_FILTER_BITS * 10),
+                        final val indexCacheSize: Long   = Constants.SIXTY_FOUR_MB_BYTES / 2,
+                        final val dataCacheSize: Long    = Constants.SIXTY_FOUR_MB_BYTES / 2
 
                       ) {
   def indexKeySize: Int      = Constants.INDEX_KEY_SIZE
@@ -42,6 +45,14 @@ final class Config(
   final val pagesFromAllowBlockSize: Int = Math.floor(maxAllowedBlockSize / pageSize).toInt
 
   final val xxHashSeed = Constants.XXHASH_SEED
+
+  def cacheSize(kind: CacheKind): Long = {
+    kind match {
+      case BFCache    => bfCacheSize
+      case IndexCache => indexCacheSize
+      case DataCache  => dataCacheSize
+    }
+  }
 
 }
 

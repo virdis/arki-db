@@ -30,17 +30,20 @@ import com.virdis.models.{FrozenInMemoryBlock, KeyByteVector, PayloadBuffer, Val
 import com.virdis.utils.Config
 import cats.implicits._
 import com.virdis.io.BlockWriter
+import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import scodec.bits.ByteVector
 
 abstract class InMemoryBlock[F[_], Hash](
-                                  val config: Config,
-                                  val hasher: Hasher[Hash]
+                                          val config:    Config,
+                                          val inmemoryF: InMemoryCacheF[F],
+                                          val rangeF:    RangeF[F],
+                                          val hasher:    Hasher[Hash]
                                   )(implicit F: Sync[F], T: Concurrent[F], C: ContextShift[F]) {
   @volatile var cmap                   = new ConcurrentSkipListMap[Long, PayloadBuffer]()
   private final val currentPageOffSet  = new AtomicInteger(0)
   private final val pageCounter        = new AtomicInteger(0)
   private final val maxAllowedBytes    = new AtomicInteger(0)
-  final val blockWriter                = new BlockWriter[F](config)
+  final val blockWriter                = new BlockWriter[F](config, inmemoryF, rangeF)
 
   @inline def getCurrentPageOffSet = currentPageOffSet.get()
   @inline def getCurrentPage       = pageCounter.get()

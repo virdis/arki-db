@@ -31,6 +31,7 @@ import com.virdis.BaseSpec
 import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
 import com.virdis.models._
+import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import com.virdis.utils.{Config, Constants}
 import net.jpountz.xxhash.XXHash64
 import org.scalacheck.Gen
@@ -94,10 +95,11 @@ class BlockWriterSpec extends BaseSpec {
 
       go(FrozenInMemoryBlock.EMPTY, 0, new mutable.HashSet[GeneratedKey](), new mutable.HashSet[ByteBuffer]())
     }
+    val rangeF = new RangeF[IO]
+    val inmemoryF = new InMemoryCacheF[IO](config)
+    val imb = new InMemoryBlock[IO, XXHash64](config, inmemoryF, rangeF, hasher) {}
 
-    val imb = new InMemoryBlock[IO, XXHash64](config, hasher) {}
-
-    val imb128 = new InMemoryBlock[IO, XXHash64](config128, hasher) {}
+    val imb128 = new InMemoryBlock[IO, XXHash64](config128, inmemoryF, rangeF, hasher) {}
 
     def frozenMapWithRandomData(
                                  imb: InMemoryBlock[IO, XXHash64],
@@ -237,7 +239,9 @@ class BlockWriterSpec extends BaseSpec {
     val f = new Fixture
     import f._
     val (bwr, cfg) = buildBlockWriterResult
-    val imb = new InMemoryBlock[IO, XXHash64](cfg, hasher) {}
+    val rangeF = new RangeF[IO]
+    val inmemoryF = new InMemoryCacheF[IO](cfg)
+    val imb = new InMemoryBlock[IO, XXHash64](cfg, inmemoryF, rangeF, hasher) {}
     val fileName = imb.blockWriter.write(bwr).unsafeRunSync()
     val rafAccess = new RandomAccessFile(cfg.dataDirectory+"/"+fileName, "rw")
     val channel = rafAccess.getChannel.map(FileChannel.MapMode.READ_WRITE, cfg.blockSize - Constants.FOOTER_SIZE, Constants.FOOTER_SIZE)

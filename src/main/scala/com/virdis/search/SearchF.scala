@@ -1,3 +1,4 @@
+
 /*
  *
  *     Copyright (c) 2019 Sandeep Virdi
@@ -16,13 +17,16 @@
  *
  */
 
-package com.virdis.utils
+package com.virdis.search
 
-object Tags {
-  trait Default
+import cats.effect.{ContextShift, Sync}
+import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
+
+final class SearchF[F[_]](
+                         rangeF:    RangeF[F],
+                         inmemoryF: InMemoryCacheF[F],
+                         bisearch:  BlockIndexSearch[F]
+                         )(implicit F: Sync[F], C: ContextShift[F]) {
+
+  // search
 }
-
-trait CacheKind
-case object BFCache extends CacheKind
-case object IndexCache extends CacheKind
-case object DataCache extends CacheKind
