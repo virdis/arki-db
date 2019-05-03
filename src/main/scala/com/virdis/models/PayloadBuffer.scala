@@ -26,7 +26,6 @@ import scodec.bits._
 
 /**
   * Represents KEYSIZE:KEY:VALUESIZE:VALUE:DELETED
-  * @param payload
   */
 
 case class KeyByteVector(underlying: ByteVector, size: Int)

@@ -59,25 +59,32 @@ abstract class InMemoryBlock[F[_], Hash](
     println(s"Key=${key} EntrySizeInBytes=${entrySizeInBytes} PayloadBuffer=${payloadSize}")
     F.ifM(F.delay(maxAllowedBytes.addAndGet(entrySizeInBytes) < config.maxAllowedBlockSize))(
       F.ifM(F.delay(currentPageOffSet.addAndGet(payloadSize) <= config.pageSize))(
-        F.suspend {
-          println(s"PAGEOFFSET TRUE CMAP=${cmap.size()} MaxAllowedBytes=${maxAllowedBytes.get()} PageCounter=${pageCounter.get()} CurrentPageOff=${currentPageOffSet.get()}")
-          F.delay(cmap.put(key, payloadBuffer)) *> F.delay(FrozenInMemoryBlock.EMPTY)
-        },
+        F.ifM(F.delay(cmap.put(key, payloadBuffer) == null))(
+          F.delay(FrozenInMemoryBlock.EMPTY),
+          // entry exist lets reset counters
+          F.delay(maxAllowedBytes.addAndGet(-entrySizeInBytes))
+            *> F.delay(currentPageOffSet.addAndGet(-payloadSize)) *> F.delay(FrozenInMemoryBlock.EMPTY)
+        ),
         F.suspend {
           F.ifM(F.delay(maxAllowedBytes.get() + config.pageSize > config.maxAllowedBlockSize))(
             resetCounters(key, payloadBuffer, guard, entrySizeInBytes, payloadSize),
-            F.suspend {
-              println(s"MAX+PAGESIZE CMAP=${cmap.size()} MaxAllowedBytes=${maxAllowedBytes.get()} PageCounter=${pageCounter.get()} CurrentPageOff=${currentPageOffSet.get()}")
-              currentPageOffSet.set(0)
-              currentPageOffSet.addAndGet(payloadSize)
-              pageCounter.incrementAndGet()
-              F.delay(cmap.put(key, payloadBuffer)) *> F.delay(FrozenInMemoryBlock.EMPTY)
-            }
+            F.ifM(F.delay(cmap.put(key, payloadBuffer) == null))(
+              F.suspend {
+                println(s"MAX+PAGESIZE CMAP=${cmap.size()} MaxAllowedBytes=${maxAllowedBytes.get()} PageCounter=${pageCounter.get()} CurrentPageOff=${currentPageOffSet.get()}")
+                currentPageOffSet.set(0)
+                currentPageOffSet.addAndGet(payloadSize)
+                pageCounter.incrementAndGet()
+                F.delay(FrozenInMemoryBlock.EMPTY)
+              },
+              // entry exist lets reset counters
+              F.delay(maxAllowedBytes.addAndGet(-entrySizeInBytes))
+                *> F.delay(currentPageOffSet.addAndGet(-payloadSize)) *> F.delay(FrozenInMemoryBlock.EMPTY)
+            )
           )
         }
       ),
       resetCounters(key, payloadBuffer, guard, entrySizeInBytes, payloadSize)
-      )
+    )
   }
 
   /***

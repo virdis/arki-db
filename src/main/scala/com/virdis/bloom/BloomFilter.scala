@@ -25,6 +25,7 @@ import com.virdis.utils.{Config, Constants}
 import net.jpountz.xxhash.{XXHash64, XXHashFactory}
 import scodec.bits.{BitVector, ByteOrdering}
 
+// https://stackoverflow.com/questions/48727174/bloom-filters-and-its-multiple-hash-functions
 final class BloomFilter(val bits: Int, val hashes: Int) {
   // make these configurable
   val hasher: XXHash64 = XXHashFactory.fastestInstance().hash64()

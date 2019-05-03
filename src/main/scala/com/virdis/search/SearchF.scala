@@ -19,14 +19,30 @@
 
 package com.virdis.search
 
+import java.nio.ByteBuffer
+
 import cats.effect.{ContextShift, Sync}
+import com.virdis.hashing.Hasher
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
+import net.jpountz.xxhash.XXHash64
 
 final class SearchF[F[_]](
                          rangeF:    RangeF[F],
                          inmemoryF: InMemoryCacheF[F],
                          bisearch:  BlockIndexSearch[F]
                          )(implicit F: Sync[F], C: ContextShift[F]) {
-
+  val hasher: Hasher[XXHash64] = Hasher.xxhash64
   // search
+/*  def get(key: ByteBuffer) = {
+    F.flatMap(F.delay(hasher.hash(key))) {
+      genKey =>
+        F.flatMap(rangeF.get(genKey.underlying)) {
+          optRangeValue =>
+            optRangeValue.map {
+              rangeV =>
+                ???
+            }
+        }
+    }
+  }*/
 }
