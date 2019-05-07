@@ -55,7 +55,7 @@ class BlockIndexSearchSpec extends BaseSpec {
     val rangeF = new RangeF[IO]
     val inmemoryF = new InMemoryCacheF[IO](config128)
     val imb128 = new InMemoryBlock[IO, XXHash64](config128, inmemoryF, rangeF, hasher) {}
-    val bis    = new BlockIndexSearch[IO]() {}
+    val bis    = new BlockIndexSearch[IO]()
 
     def frozenMapForIndex(
                            imb: InMemoryBlock[IO, XXHash64],

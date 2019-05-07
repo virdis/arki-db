@@ -18,31 +18,78 @@
 
 package com.virdis.search.inmemory
 
-import java.nio.ByteBuffer
+import java.nio.{Buffer, ByteBuffer}
+import java.util.function
 
 import cats.effect.{ContextShift, Sync}
-import com.github.benmanes.caffeine.cache.{Cache, Caffeine}
-import com.virdis.utils.{BFCache, CacheKind, Config, DataCache, IndexCache}
+import com.github.benmanes.caffeine.cache.{Cache, Caffeine, RemovalCause, RemovalListener}
+import com.virdis.utils.{BFCache, CacheKind, Config, DataCache, IndexCache, Utils}
 import scodec.bits.BitVector
 
 
 
 // TODO Build Caches from Disk
 final class InMemoryCacheF[F[_]](config: Config)(implicit F: Sync[F], C: ContextShift[F]) {
-  import InMemoryCacheF._
 
-  final val bloomFilterCache = new CacheF[F, String, BitVector](config, BFCache)
-  final val indexCache       = new CacheF[F, String, ByteBuffer](config, IndexCache)
-  final val dataCache        = new CacheF[F, String, ByteBuffer](config, DataCache)
+  final val bloomFilterCache = CacheF.bloomFilterCache[F, String, BitVector](config, BFCache)
+  final val indexCache       = CacheF.byteBufferCache[F, String, ByteBuffer](config, IndexCache)
+  final val dataCache        = CacheF.byteBufferCache[F, String, ByteBuffer](config, DataCache)
 }
 
 object InMemoryCacheF {
+  // No need to create instances everytime use defaults instead
+  // use Footer to load Caches from Disk
+  final val defaultBFilterFetch = new function
+  .Function[String, BitVector] {
+    override def apply(t: String): BitVector = BitVector.empty
+  }
+  private final val bbEmpty = ByteBuffer.allocate(0)
+  final val defaultBBCacheFetch = new function.Function[String, ByteBuffer] {
+    override def apply(t: String): ByteBuffer = bbEmpty
+  }
+}
 
-  final class CacheF[F[_], K <: AnyRef, V <: AnyRef](config: Config, kind: CacheKind)(implicit F: Sync[F], C: ContextShift[F]) {
-    private final val cacheF: Cache[K, V] = Caffeine.newBuilder().maximumSize(config.cacheSize(kind)).build()
-    def put(key: K, value: V): F[Unit] = F.delay(cacheF.put(key, value))
-    def get(key: K, f: java.util.function.Function[K, V]): F[V] = F.delay(cacheF.get(key, f))
+trait CacheF[F[_], K, V] {
+  def config: Config
+  def cacheKind: CacheKind
+  def cacheF: Cache[K,V]
+  def put(key: K, value: V)(implicit F: Sync[F]): F[Unit] = F.delay(cacheF.put(key, value))
+  def get(key: K, f: java.util.function.Function[K, V])(implicit F: Sync[F]) = F.delay(cacheF.get(key, f))
+}
+
+object CacheF {
+  def bloomFilterCache[F[_], K <: AnyRef, V <: BitVector](
+                                                           cfg: Config,
+                                                           ckind: CacheKind
+                                                         )(implicit F: Sync[F], C: ContextShift[F]): CacheF[F, K, V] =
+    new CacheF[F, K, V] {
+      override def config:Config = cfg
+
+      override def cacheKind: CacheKind = ckind
+
+      override def cacheF: Cache[K, V] = Caffeine
+        .newBuilder()
+        .maximumSize(config.cacheSize(cacheKind))
+        .build()
   }
 
+  def byteBufferCache[F[_], K <: AnyRef, V <: Buffer](
+                                                       cfg: Config,
+                                                       ckind: CacheKind
+                                                     )(implicit F: Sync[F], C: ContextShift[F]): CacheF[F, K, V] =
+    new CacheF[F, K, V] {
+      override def config: Config = cfg
 
+      override def cacheKind: CacheKind = ckind
+
+      override def cacheF: Cache[K, V] = Caffeine
+        .newBuilder()
+        .maximumSize(config.cacheSize(cacheKind))
+        .removalListener(new RemovalListener[K,V] {
+          override def onRemoval(key: K, value: V, cause: RemovalCause): Unit = {
+            Utils.freeDirectBuffer(value)(F, C)
+          }
+        })
+        .build()
+    }
 }

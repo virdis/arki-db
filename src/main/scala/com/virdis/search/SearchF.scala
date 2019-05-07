@@ -22,27 +22,74 @@ package com.virdis.search
 import java.nio.ByteBuffer
 
 import cats.effect.{ContextShift, Sync}
+import com.virdis.bloom.BloomFilter
 import com.virdis.hashing.Hasher
+import com.virdis.models.{ArKiResult, BloomFilterError, Footer, GeneratedKey, RangeFValue, SearchResult}
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
+import com.virdis.utils.{Config, Constants, Utils}
 import net.jpountz.xxhash.XXHash64
+import scodec.bits.BitVector
 
 final class SearchF[F[_]](
                          rangeF:    RangeF[F],
                          inmemoryF: InMemoryCacheF[F],
-                         bisearch:  BlockIndexSearch[F]
+                         bisearch:  BlockIndexSearch[F],
+                         config:    Config
                          )(implicit F: Sync[F], C: ContextShift[F]) {
   val hasher: Hasher[XXHash64] = Hasher.xxhash64
+  val bloomFilter     = new BloomFilter(config.bloomFilterBits, config.bloomFilterHashes)
   // search
-/*  def get(key: ByteBuffer) = {
+  /*def get(key: ByteBuffer) = {
     F.flatMap(F.delay(hasher.hash(key))) {
       genKey =>
         F.flatMap(rangeF.get(genKey.underlying)) {
           optRangeValue =>
             optRangeValue.map {
               rangeV =>
-                ???
-            }
+                val key = Utils.buildKey(rangeV.footer)
+                 F.flatMap(inmemoryF.bloomFilterCache.get(key, InMemoryCacheF.defaultBFilterFetch)) {
+                   bitVec =>
+
+                 }
+                  ???
+            }.get
         }
     }
   }*/
+
+  def searchBloomFilter(generatedKey: GeneratedKey, rangeFValue: RangeFValue): F[Either[ArKiResult, String]] = {
+    F.flatMap(F.delay(Utils.buildKey(rangeFValue.footer))) {
+      key =>
+        F.flatMap(inmemoryF.bloomFilterCache.get(key, InMemoryCacheF.defaultBFilterFetch)) {
+          bitVec =>
+            F.ifM(F.delay(bloomFilter.contains(bitVec, generatedKey)))(
+              F.delay(Right(key)),
+              F.delay(Left(BloomFilterError))
+            )
+        }
+    }
+  }
+
+  def searchIndex(generatedKey: GeneratedKey, footer: Footer, key: String): F[SearchResult] = {
+    F.flatMap(inmemoryF.indexCache.get(key, InMemoryCacheF.defaultBBCacheFetch)) {
+      indexByteBuff =>
+        F.flatMap(F.delay(indexByteBuff.duplicate())) {
+          ibb =>
+            bisearch.binarySearch(ibb, generatedKey.underlying,
+              Constants.INDEX_KEY_SIZE ,0, footer.noOfKeysInIndex.underlying)
+        }
+    }
+  }
+
+ /* def searchData(searchResult: SearchResult, key: String) = {
+    F.flatMap(inmemoryF.dataCache.get(key, InMemoryCacheF.defaultBBCacheFetch)) {
+      dataByteBuff =>
+        F.flatMap(F.delay(dataByteBuff.duplicate())) {
+          dbb =>
+            val address = (config.pageSize * searchResult.page.underlying) + searchResult.offSet.underlying
+            ???
+        }
+    }
+  }*/
+
 }

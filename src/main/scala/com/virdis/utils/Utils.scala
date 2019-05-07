@@ -19,45 +19,43 @@
 
 package com.virdis.utils
 
-import java.nio.ByteBuffer
+import java.nio.{Buffer, ByteBuffer}
 
 import com.virdis.threadpools.IOThreadFactory._
 import cats.effect.{ContextShift, Sync}
 import Constants._
-import cats.{Applicative, Traverse}
-import com.virdis.models.{Footer, IndexElement, Offset, Page, PageAlignedDataBuffer}
-import cats.syntax.traverse
+import com.virdis.models.{Footer, Offset, Page}
 import cats.implicits._
-import com.virdis.threadpools.IOThreadFactory
 
 object Utils {
 
   // TODO document
-  @inline final def freeDirectBuffer[F[_]](nativeAddress: Long)(F: Sync[F], Cs: ContextShift[F]): F[Unit] =
-    Cs.evalOn(blockingIOPool.executionContext)(F.delay(memoryManager.freeMemory(nativeAddress)))
+  @inline final def freeDirectBuffer[F[_]](nativeAddress: Long)(F: Sync[F], C: ContextShift[F]): F[Unit] =
+    C.evalOn(blockingIOPool.executionContext)(F.delay(memoryManager.freeMemory(nativeAddress)))
 
-  final def freeDirectBuffer[F[_]](buffer: ByteBuffer)(F: Sync[F], Cs: ContextShift[F]): F[Unit] =
-    Cs.evalOn(blockingIOPool.executionContext)(F.delay {
-      val nativeAddress = memoryManager.getDirectBufferAddress(buffer)
-      memoryManager.freeMemory(nativeAddress)
-    })
+  final def freeDirectBuffer[F[_]](buffer: Buffer)(F: Sync[F], Cs: ContextShift[F]): F[Unit] =
+    F.ifM(F.delay(buffer.isDirect))(
+      Cs.evalOn(blockingIOPool.executionContext)(F.delay {
+        val nativeAddress = memoryManager.getDirectBufferAddress(buffer)
+        memoryManager.freeMemory(nativeAddress)
+      }),
+      F.unit
+    )
 
   @inline final def calculateOffset(page: Page, offSet: Offset, pageSize: Int): Int = (page.underlying * pageSize) + offSet.underlying
 
-  // TODO clean up Duplicate buffer
   final def kvByteBuffers[F[_]](idx: Int, dataBuffer: ByteBuffer)(F: Sync[F], Cs: ContextShift[F]) = {
-    val duplicate = dataBuffer.duplicate()
-    duplicate.position(idx)
-    val keySize = duplicate.getShort
+    dataBuffer.position(idx)
+    val keySize = dataBuffer.getShort
     val key = new Array[Byte](keySize)
-    duplicate.position(idx + 2)
-    duplicate.get(key)
-    duplicate.position(idx + 2 + keySize)
-    val valueSize = duplicate.getShort
+    dataBuffer.position(idx + 2)
+    dataBuffer.get(key)
+    dataBuffer.position(idx + 2 + keySize)
+    val valueSize = dataBuffer.getShort
     val value = new Array[Byte](valueSize)
-    duplicate.position(idx + 2 + keySize + 2)
-    duplicate.get(value)
-    freeDirectBuffer(duplicate)(F, Cs)
+    dataBuffer.position(idx + 2 + keySize + 2)
+    dataBuffer.get(value)
+    freeDirectBuffer(dataBuffer)(F, Cs)
     (key, value)
   }
 
