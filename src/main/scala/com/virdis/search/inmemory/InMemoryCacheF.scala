@@ -23,6 +23,7 @@ import java.util.function
 
 import cats.effect.{ContextShift, Sync}
 import com.github.benmanes.caffeine.cache.{Cache, Caffeine, RemovalCause, RemovalListener}
+import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.{BFCache, CacheKind, Config, DataCache, IndexCache, Utils}
 import scodec.bits.BitVector
 
@@ -38,7 +39,7 @@ final class InMemoryCacheF[F[_]](config: Config)(implicit F: Sync[F], C: Context
 
 object InMemoryCacheF {
   // No need to create instances everytime use defaults instead
-  // use Footer to load Caches from Disk
+  // TODO use Footer to load Caches from Disk
   final val defaultBFilterFetch = new function
   .Function[String, BitVector] {
     override def apply(t: String): BitVector = BitVector.empty
@@ -63,11 +64,11 @@ object CacheF {
                                                            ckind: CacheKind
                                                          )(implicit F: Sync[F], C: ContextShift[F]): CacheF[F, K, V] =
     new CacheF[F, K, V] {
-      override def config:Config = cfg
+      override final val config:Config = cfg
 
-      override def cacheKind: CacheKind = ckind
+      override final val cacheKind: CacheKind = ckind
 
-      override def cacheF: Cache[K, V] = Caffeine
+      override final val cacheF: Cache[K, V] = Caffeine
         .newBuilder()
         .maximumSize(config.cacheSize(cacheKind))
         .build()
@@ -78,16 +79,16 @@ object CacheF {
                                                        ckind: CacheKind
                                                      )(implicit F: Sync[F], C: ContextShift[F]): CacheF[F, K, V] =
     new CacheF[F, K, V] {
-      override def config: Config = cfg
+      override final val config: Config = cfg
 
-      override def cacheKind: CacheKind = ckind
+      override final val cacheKind: CacheKind = ckind
 
-      override def cacheF: Cache[K, V] = Caffeine
+      override final val cacheF: Cache[K, V] = Caffeine
         .newBuilder()
         .maximumSize(config.cacheSize(cacheKind))
         .removalListener(new RemovalListener[K,V] {
           override def onRemoval(key: K, value: V, cause: RemovalCause): Unit = {
-            Utils.freeDirectBuffer(value)(F, C)
+            C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(Utils.freeDirectBuffer(value)(F, C))
           }
         })
         .build()

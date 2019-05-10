@@ -30,11 +30,11 @@ final class RangeF[F[_]]()(implicit F:  Sync[F], C: Concurrent[F]) {
   @inline final val ordering = new Ordering[Long] {
     override def compare(x: Long, y: Long): Int = x compareTo y
   }
-  private val fMVarMap = MVar.of[F, mutable.TreeMap[Long, RangeFValue]](
+  private val mvarMap = MVar.of[F, mutable.TreeMap[Long, RangeFValue]](
     new mutable.TreeMap[Long, RangeFValue]()(ordering.reverse))
 
   def add(rangev: RangeFValue): F[Option[RangeFValue]] = {
-    F.flatMap(fMVarMap) {
+    F.flatMap(mvarMap) {
       mvarMap =>
         F.flatMap(mvarMap.take) { // semantic blocking
           map =>
@@ -44,7 +44,7 @@ final class RangeF[F[_]]()(implicit F:  Sync[F], C: Concurrent[F]) {
   }
 
   def get(key: Long): F[Option[RangeFValue]] = {
-    F.flatMap(fMVarMap) {
+    F.flatMap(mvarMap) {
       mvarMap =>
         F.flatMap(mvarMap.read) {
           map =>

@@ -21,4 +21,6 @@ package com.virdis.models
 // Is this a good idea to expose these Error states
 
 sealed trait ArKiResult
+case object CacheKeyNotFound extends ArKiResult
 case object BloomFilterError extends ArKiResult
+case object IndexError extends ArKiResult

@@ -44,7 +44,7 @@ object Utils {
 
   @inline final def calculateOffset(page: Page, offSet: Offset, pageSize: Int): Int = (page.underlying * pageSize) + offSet.underlying
 
-  final def kvByteBuffers[F[_]](idx: Int, dataBuffer: ByteBuffer)(F: Sync[F], Cs: ContextShift[F]) = {
+  final def kvByteBuffers(idx: Int, dataBuffer: ByteBuffer): (Array[Byte], Array[Byte]) = {
     dataBuffer.position(idx)
     val keySize = dataBuffer.getShort
     val key = new Array[Byte](keySize)
@@ -55,7 +55,6 @@ object Utils {
     val value = new Array[Byte](valueSize)
     dataBuffer.position(idx + 2 + keySize + 2)
     dataBuffer.get(value)
-    freeDirectBuffer(dataBuffer)(F, Cs)
     (key, value)
   }
 

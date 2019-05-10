@@ -24,11 +24,10 @@ import java.nio.ByteBuffer
 import cats.effect.{ContextShift, Sync}
 import com.virdis.bloom.BloomFilter
 import com.virdis.hashing.Hasher
-import com.virdis.models.{ArKiResult, BloomFilterError, Footer, GeneratedKey, RangeFValue, SearchResult}
+import com.virdis.models.{ArKiResult, BloomFilterError, CacheKeyNotFound, Footer, GeneratedKey, IndexError, RangeFValue, SearchResult}
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import com.virdis.utils.{Config, Constants, Utils}
 import net.jpountz.xxhash.XXHash64
-import scodec.bits.BitVector
 
 final class SearchF[F[_]](
                          rangeF:    RangeF[F],
@@ -36,26 +35,39 @@ final class SearchF[F[_]](
                          bisearch:  BlockIndexSearch[F],
                          config:    Config
                          )(implicit F: Sync[F], C: ContextShift[F]) {
-  val hasher: Hasher[XXHash64] = Hasher.xxhash64
-  val bloomFilter     = new BloomFilter(config.bloomFilterBits, config.bloomFilterHashes)
+  final val hasher: Hasher[XXHash64] = Hasher.xxhash64
+  final val bloomFilter              = new BloomFilter(config.bloomFilterBits, config.bloomFilterHashes)
+  type KVBuffers = (Array[Byte], Array[Byte])
+  type Result = Either[ArKiResult, KVBuffers]
   // search
-  /*def get(key: ByteBuffer) = {
+  def get(key: ByteBuffer): F[Result] = {
     F.flatMap(F.delay(hasher.hash(key))) {
       genKey =>
         F.flatMap(rangeF.get(genKey.underlying)) {
           optRangeValue =>
             optRangeValue.map {
               rangeV =>
-                val key = Utils.buildKey(rangeV.footer)
-                 F.flatMap(inmemoryF.bloomFilterCache.get(key, InMemoryCacheF.defaultBFilterFetch)) {
-                   bitVec =>
-
-                 }
-                  ???
-            }.get
+                F.flatMap(searchBloomFilter(genKey, rangeV)) {
+                  _.fold[F[Result]](
+                    err => F.delay(Left[ArKiResult, KVBuffers](err)),
+                    cacheKey => {
+                      F.flatMap(searchIndex(genKey, rangeV.footer, cacheKey)) {
+                        searchResult =>
+                            F.ifM(F.delay(searchResult == SearchResult.NOT_FOUND))(
+                              F.delay(Left[ArKiResult, KVBuffers](IndexError)) ,
+                              F.flatMap(searchData(searchResult, cacheKey)) {
+                                res =>
+                                  F.delay(Right[ArKiResult, KVBuffers](res))
+                              }
+                            )
+                      }
+                    }
+                  )
+                }
+            }.getOrElse(F.delay[Result](Left[ArKiResult, KVBuffers](CacheKeyNotFound)))
         }
     }
-  }*/
+  }
 
   def searchBloomFilter(generatedKey: GeneratedKey, rangeFValue: RangeFValue): F[Either[ArKiResult, String]] = {
     F.flatMap(F.delay(Utils.buildKey(rangeFValue.footer))) {
@@ -81,15 +93,16 @@ final class SearchF[F[_]](
     }
   }
 
- /* def searchData(searchResult: SearchResult, key: String) = {
+  def searchData(searchResult: SearchResult, key: String): F[KVBuffers] = {
     F.flatMap(inmemoryF.dataCache.get(key, InMemoryCacheF.defaultBBCacheFetch)) {
       dataByteBuff =>
         F.flatMap(F.delay(dataByteBuff.duplicate())) {
           dbb =>
             val address = (config.pageSize * searchResult.page.underlying) + searchResult.offSet.underlying
-            ???
+            val (key, value) = Utils.kvByteBuffers(address, dbb)
+            F.delay(Tuple2(key, value))
         }
     }
-  }*/
+  }
 
 }

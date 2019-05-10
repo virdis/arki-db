@@ -19,8 +19,6 @@
 
 package com.virdis.models
 
-import com.virdis.utils.Constants
-
 case class Ts(underlying: Long)                 extends AnyVal
 case class MinKey(underlying: Long)             extends AnyVal
 case class MaxKey(underlying: Long)             extends AnyVal
