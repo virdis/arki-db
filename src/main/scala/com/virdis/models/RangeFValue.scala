@@ -19,4 +19,6 @@
 
 package com.virdis.models
 
-case class RangeFValue(name: String, footer: Footer)
+import cats.collections.{Range => CatsRange }
+
+case class RangeFValue(range: CatsRange[Long], name: String, footer: Footer)

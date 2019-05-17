@@ -141,7 +141,7 @@ class BlockWriterSpec extends BaseSpec {
 
     def buildBlockWriterResult = {
       // build block total of 4 MB // 4194304 bytes
-      val config = new Config(blockSize = 4194304, dataDirectory = ".")//"../../../../resources/")
+      val config = new Config(blockSize = 4194304, dataDirectory = ".")
       val pgadbBV = ByteBuffer.allocate(1048576)
       (0 to 500).foreach{i => pgadbBV.putInt(i)}
       val pgAD = new PageAlignedDataBuffer(10, 100, pgadbBV)

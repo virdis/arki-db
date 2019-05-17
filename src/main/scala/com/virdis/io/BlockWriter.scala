@@ -31,6 +31,7 @@ import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.{Config, Constants, Utils}
 import scodec.bits.{BitVector, ByteOrdering, ByteVector}
+import cats.collections.{Range => CatsRange}
 
 final class BlockWriter[F[_]](
                                config:  Config,
@@ -159,9 +160,9 @@ final class BlockWriter[F[_]](
     )
   }
 
-  def updateCaches(bwr: BlockWriterResult, footer: Footer, fileName: String) = {
+  def updateCaches(bwr: BlockWriterResult, footer: Footer, fileName: String): F[Unit] = {
     val key = Utils.buildKey(footer)
-    val rangeFValue = RangeFValue(fileName, footer)
+    val rangeFValue = RangeFValue(CatsRange(footer.minKey.underlying, footer.maxKey.underlying), fileName, footer)
     rangeF.add(rangeFValue)
     inmemoryF.bloomFilterCache.put(key, bwr.bloomFilter)
     inmemoryF.indexCache.put(key, bwr.indexByteBuffer.underlying.duplicate())

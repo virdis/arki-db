@@ -24,47 +24,32 @@ import cats.effect.concurrent.{MVar, Ref}
 import com.virdis.models.{Footer, RangeFValue}
 
 import scala.collection.mutable
-
+import scala.collection.mutable.ListBuffer
+import cats.collections.{Range => CatsRange}
 // TODO replace this with Interval Tree
 final class RangeF[F[_]]()(implicit F:  Sync[F], C: Concurrent[F]) {
-  @inline final val ordering = new Ordering[Long] {
-    override def compare(x: Long, y: Long): Int = x compareTo y
-  }
-  private val mvarMap = MVar.of[F, mutable.TreeMap[Long, RangeFValue]](
-    new mutable.TreeMap[Long, RangeFValue]()(ordering.reverse))
 
-  def add(rangev: RangeFValue): F[Option[RangeFValue]] = {
-    F.flatMap(mvarMap) {
-      mvarMap =>
-        F.flatMap(mvarMap.take) { // semantic blocking
-          map =>
-            F.delay(map.put(rangev.footer.minKey.underlying, rangev))
-        }
+  // order should be recent to oldest
+  private final val refListBuffer = Ref.of[F, mutable.ListBuffer[RangeFValue]](ListBuffer.empty)
+
+  def add(rangev: RangeFValue): F[Unit] = {
+    F.flatMap(refListBuffer) {
+      rlb =>
+       rlb.modify {
+         lb =>
+           lb.prepend(rangev)
+           (lb, F.unit)
+       }
     }
   }
 
   def get(key: Long): F[Option[RangeFValue]] = {
-    F.flatMap(mvarMap) {
-      mvarMap =>
-        F.flatMap(mvarMap.read) {
-          map =>
-            F.delay(map.get(key) orElse search(key, map))
+    F.flatMap(refListBuffer) {
+      rlb =>
+        F.flatMap(rlb.get){
+          lb =>
+            F.delay(lb.find(_.range.contains(key)(cats.instances.long.catsKernelStdOrderForLong)))
         }
     }
   }
-
-  def search(key: Long, map: mutable.TreeMap[Long, RangeFValue]): Option[RangeFValue] = {
-    def go(iterator: Iterator[Long]): Option[RangeFValue] = {
-      if(iterator.hasNext) {
-        val mMinKey = iterator.next()
-        val mRangeFValue = map(mMinKey)
-        if (mMinKey < key && key < mRangeFValue.footer.maxKey.underlying) Option(mRangeFValue)
-        else go(iterator)
-      } else {
-        None
-      }
-    }
-    go(map.keysIterator)
-  }
-
 }

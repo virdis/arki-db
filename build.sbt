@@ -9,6 +9,7 @@ lazy val commonDependencies = Seq(
   scodec_bits,
   typeSafeConfig,
   caffeineCache,
+  catsCollection,
   scalaTest % Test,
   scalaCheck % Test
 )
