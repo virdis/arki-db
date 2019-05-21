@@ -29,7 +29,7 @@ import cats.collections.{Range => CatsRange}
 // TODO replace this with Interval Tree
 final class RangeF[F[_]]()(implicit F:  Sync[F], C: Concurrent[F]) {
 
-  // order should be recent to oldest
+  // order should be recent to old
   private final val refListBuffer = Ref.of[F, mutable.ListBuffer[RangeFValue]](ListBuffer.empty)
 
   def add(rangev: RangeFValue): F[Unit] = {

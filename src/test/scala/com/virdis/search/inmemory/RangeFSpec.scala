@@ -27,8 +27,8 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.Random
 import cats.implicits._
+import cats.collections.{Range => CatsRange }
 
-import scala.concurrent.Future
 
 class RangeFSpec extends BaseSpec {
   implicit val concurrentIO = Concurrent[IO]
@@ -72,11 +72,11 @@ class RangeFSpec extends BaseSpec {
     val f = new Fixture
     import f._
     val buffer = mutable.ListBuffer.empty[Footer]
-    (1 to 1000).toList.map {
+    (1 to 10).toList.map {
       i =>
         val footer = buildFooter
         buffer.append(footer)
-        rangeF.add(RangeFValue("a", footer)).start.unsafeRunSync()
+        rangeF.add(RangeFValue(CatsRange[Long](footer.minKey.underlying, footer.maxKey.underlying), "a", footer)).start.unsafeRunSync()
     }
     val res = buffer.toList.map {
       f => rangeF.get(f.minKey.underlying)
@@ -88,12 +88,13 @@ class RangeFSpec extends BaseSpec {
     import f._
     val buffer = mutable.ListBuffer.empty[Footer]
     val searchKeyBuffer = mutable.ListBuffer.empty[Long]
-    (1 to 1000).toList.map {
+    (1 to 10).toList.map {
       i =>
         val (footer, searchKey) = buildRange
         buffer.append(footer)
         searchKeyBuffer.append(searchKey)
-        rangeF.add(RangeFValue("b", footer)).start.unsafeRunSync()
+        rangeF.add(RangeFValue(CatsRange[Long](footer.minKey.underlying, footer.maxKey.underlying) ,
+          "b", footer)).start.unsafeRunSync()
     }
     val res = searchKeyBuffer.toList.map {
       k => rangeF.get(k)
