@@ -18,12 +18,8 @@
 
 package com.virdis.bloom
 
-import java.nio.{ByteBuffer, ByteOrder}
-
 import com.virdis.hashing.Hasher
 import com.virdis.models.GeneratedKey
-import com.virdis.utils.{Config, Constants}
-import net.jpountz.xxhash.{XXHash64, XXHashFactory}
 import scodec.bits.{BitVector, ByteOrdering, ByteVector}
 
 // https://stackoverflow.com/questions/48727173/bloom-filters-and-its-multiple-hash-functions
@@ -44,7 +40,7 @@ trait BloomFilter {
     ((hash1.underlying + (idx * hash2.underlying)) & Long.MaxValue) % bits
   }
 
-  final def put(generatedKey: GeneratedKey) = {
+  @inline final def put(generatedKey: GeneratedKey) = {
     val (hash1, hash2) = genHashes(generatedKey)
     var i = 0
     while (i < hashes) {
@@ -54,7 +50,7 @@ trait BloomFilter {
     }
   }
 
-  final def contains(generatedKey: GeneratedKey): Boolean = {
+  @inline final def contains(generatedKey: GeneratedKey): Boolean = {
     val (hash1, hash2) = genHashes(generatedKey)
     var i = 0
     var result = true

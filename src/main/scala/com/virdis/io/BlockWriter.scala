@@ -20,12 +20,12 @@
 package com.virdis.io
 
 import java.io.RandomAccessFile
-import java.nio.{ByteBuffer, MappedByteBuffer}
+import java.nio.{ByteBuffer, ByteOrder, MappedByteBuffer}
 import java.nio.channels.FileChannel
 
 import cats.implicits._
 import cats.effect.{ContextShift, Resource, Sync}
-import com.virdis.bloom.{BloomFilterF}
+import com.virdis.bloom.BloomFilterF
 import com.virdis.models._
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import com.virdis.threadpools.IOThreadFactory
@@ -40,7 +40,7 @@ final class BlockWriter[F[_]](
                              )(implicit F: Sync[F], C: ContextShift[F]){
 
   type Position = Int
-  type Size     = Int
+  type Size     = Int // Size in Bytes
   type NoOfKeys = Int
 
   private final def build0(
@@ -97,9 +97,11 @@ final class BlockWriter[F[_]](
 
   def writeBloomFilter(mappedByteBuffer: MappedByteBuffer, bloomFilter: Array[Int]): (Position, Size) = {
     val bfilterPosition = mappedByteBuffer.position()
-    val intBB = ByteBuffer.allocate(bloomFilter.size * 4)
-    bloomFilter.foreach(i => mappedByteBuffer.putInt(i))
-    (bfilterPosition, bloomFilter.size)
+    val intBB = ByteBuffer.allocateDirect(bloomFilter.size * 4)
+    bloomFilter.foreach(i => intBB.putInt(i))
+    intBB.flip()
+    mappedByteBuffer.put(intBB)
+    (bfilterPosition, intBB.position()) // no of bytes written
   }
 
   def writeFooter(mappedByteBuffer: MappedByteBuffer, footer: Footer, config: Config) = {

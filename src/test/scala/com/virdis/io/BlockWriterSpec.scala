@@ -28,6 +28,7 @@ import java.util
 import cats.effect.{Concurrent, IO, Sync}
 import cats.effect.concurrent.Semaphore
 import com.virdis.BaseSpec
+import com.virdis.bloom.BloomFilterF
 import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
 import com.virdis.models._
@@ -87,7 +88,7 @@ class BlockWriterSpec extends BaseSpec {
           bytesfromKey.putInt(counter)
           keySet.add(ByteBuffer.wrap(keyBytes.array()))
           bytesfromKey.flip()
-          val genKey = imb.hasher.hash(bytesfromKey)
+          val genKey = imb.hasher.hash(bytesfromKey.duplicate().array())
           genKeySet.add(genKey)
           go(imb.put(keyBytes, valueBytes, sem).unsafeRunSync(), counter + 1, genKeySet, keySet)
         }
@@ -138,7 +139,7 @@ class BlockWriterSpec extends BaseSpec {
         new mutable.HashSet[ByteBuffer]()
       )
     }
-
+    // TODO : Remove hardcoded values
     def buildBlockWriterResult = {
       // build block total of 4 MB // 4194304 bytes
       val config = new Config(blockSize = 4194304, dataDirectory = ".")
@@ -149,8 +150,8 @@ class BlockWriterSpec extends BaseSpec {
       (1 to 500).foreach{i =>
         indxBV.putLong(i.toLong); indxBV.putInt(i); indxBV.putInt(i)}
       val ibb = new IndexByteBuffer(indxBV)
-      val bfBV = BitVector.fill(config.bloomFilterBits)(true)
-      (BlockWriterResult(pgAD, ibb, 500, MinKey(1), MaxKey(100L), bfBV), config)
+      val bf = new BloomFilterF(100, 3)
+      (BlockWriterResult(pgAD, ibb, 500, MinKey(1), MaxKey(100L), bf), config)
     }
 
   }
@@ -244,7 +245,8 @@ class BlockWriterSpec extends BaseSpec {
     val imb = new InMemoryBlock[IO, XXHash64](cfg, inmemoryF, rangeF, hasher) {}
     val fileName = imb.blockWriter.write(bwr).unsafeRunSync()
     val rafAccess = new RandomAccessFile(cfg.dataDirectory+"/"+fileName, "rw")
-    val channel = rafAccess.getChannel.map(FileChannel.MapMode.READ_WRITE, cfg.blockSize - Constants.FOOTER_SIZE, Constants.FOOTER_SIZE)
+    val channel = rafAccess.getChannel.map(FileChannel.MapMode.READ_WRITE,
+      cfg.blockSize - Constants.FOOTER_SIZE, Constants.FOOTER_SIZE)
     val footer = imb.blockWriter.readFooter(channel)
     val dataBuffer = rafAccess.getChannel.map(FileChannel.MapMode.READ_ONLY, footer.dataBufferOffSet.underlying, footer.dataBufferSize.underlying)
     val indexBB = rafAccess.getChannel.map(FileChannel.MapMode.READ_ONLY,
@@ -259,7 +261,6 @@ class BlockWriterSpec extends BaseSpec {
       && bwr.indexByteBuffer.underlying.equals(indexBB)
     )
   }
-
 }
 
 

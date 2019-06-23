@@ -19,18 +19,10 @@
 
 package com.virdis.bloom
 
-import java.nio.ByteBuffer
 import java.util.Random
 
 import com.virdis.BaseSpec
-import com.virdis.models.GeneratedKey
-import com.virdis.utils.Constants
 import net.jpountz.xxhash.{XXHash64, XXHashFactory}
-import org.scalacheck.Gen
-import scodec.bits.{BitVector, ByteOrdering}
-
-import scala.collection.mutable.ListBuffer
-import scala.concurrent.Future
 
 class BloomFilterSpec extends BaseSpec {
 
