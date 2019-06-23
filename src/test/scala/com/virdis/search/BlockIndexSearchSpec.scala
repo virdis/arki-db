@@ -74,7 +74,7 @@ class BlockIndexSearchSpec extends BaseSpec {
           keySet.add(ByteBuffer.wrap(kbv.toByteArray))
           val genKey = imb.hasher.hash(kbv.toByteArray)
           genKeySet.add(genKey)
-          go(imb.add(ByteBuffer.wrap(kbv.toByteArray),
+          go(imb.put(ByteBuffer.wrap(kbv.toByteArray),
             ByteBuffer.wrap(kbv.toByteArray), sem).unsafeRunSync(), counter + 1, genKeySet, keySet, genKey)
         }
       }

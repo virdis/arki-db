@@ -123,7 +123,7 @@ abstract class InMemoryBlock[F[_], Hash](
   }
 
   //TODO change this to add FIMB to a queue
-  def add(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]): F[FrozenInMemoryBlock] = {
+  def put(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]): F[FrozenInMemoryBlock] = {
     for {
       genratedKey  <- F.delay {
         hasher.hash(key.array())
@@ -137,6 +137,10 @@ abstract class InMemoryBlock[F[_], Hash](
 
   private def makeByteVectors(k: ByteBuffer, v: ByteBuffer) = {
     (KeyByteVector(ByteVector.view(k), k.capacity()), ValueByteVector(ByteVector.view(v), v.capacity()))
+  }
+
+  def get(key: ByteBuffer) = {
+
   }
 }
 

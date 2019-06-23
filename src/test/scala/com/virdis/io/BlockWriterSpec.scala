@@ -89,7 +89,7 @@ class BlockWriterSpec extends BaseSpec {
           bytesfromKey.flip()
           val genKey = imb.hasher.hash(bytesfromKey)
           genKeySet.add(genKey)
-          go(imb.add(keyBytes, valueBytes, sem).unsafeRunSync(), counter + 1, genKeySet, keySet)
+          go(imb.put(keyBytes, valueBytes, sem).unsafeRunSync(), counter + 1, genKeySet, keySet)
         }
       }
 

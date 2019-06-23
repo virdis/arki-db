@@ -23,16 +23,14 @@ import java.util.function
 
 import cats.effect.{ContextShift, Sync}
 import com.github.benmanes.caffeine.cache.{Cache, Caffeine, RemovalCause, RemovalListener}
+import com.virdis.bloom.BloomFilterF
 import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.{BFCache, CacheKind, Config, DataCache, IndexCache, Utils}
-import scodec.bits.BitVector
-
-
 
 // TODO Build Caches from Disk
 final class InMemoryCacheF[F[_]](config: Config)(implicit F: Sync[F], C: ContextShift[F]) {
 
-  final val bloomFilterCache = CacheF.bloomFilterCache[F, String, BitVector](config, BFCache)
+  final val bloomFilterCache = CacheF.bloomFilterCache[F, String, BloomFilterF](config, BFCache)
   final val indexCache       = CacheF.byteBufferCache[F, String, ByteBuffer](config, IndexCache)
   final val dataCache        = CacheF.byteBufferCache[F, String, ByteBuffer](config, DataCache)
 }
@@ -41,8 +39,8 @@ object InMemoryCacheF {
   // No need to create instances everytime use defaults instead
   // TODO use Footer to load Caches from Disk
   final val defaultBFilterFetch = new function
-  .Function[String, BitVector] {
-    override def apply(t: String): BitVector = BitVector.empty
+  .Function[String, BloomFilterF] {
+    override def apply(t: String): BloomFilterF = new BloomFilterF(0,0)
   }
   private final val bbEmpty = ByteBuffer.allocate(0)
   final val defaultBBCacheFetch = new function.Function[String, ByteBuffer] {
@@ -59,7 +57,7 @@ trait CacheF[F[_], K, V] {
 }
 
 object CacheF {
-  def bloomFilterCache[F[_], K <: AnyRef, V <: BitVector](
+  def bloomFilterCache[F[_], K <: AnyRef, V <: BloomFilterF](
                                                            cfg: Config,
                                                            ckind: CacheKind
                                                          )(implicit F: Sync[F], C: ContextShift[F]): CacheF[F, K, V] =

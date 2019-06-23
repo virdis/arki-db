@@ -62,7 +62,7 @@ class InMemoryBlockSpec extends BaseSpec {
     val value = ByteBuffer.wrap(bv.toArray)
     val entrySize = config128.indexKeySize + (2 * Constants.LONG_SIZE_IN_BYTES)
 
-    val fb = imb128.add(key, value, semaphore).unsafeRunSync()
+    val fb = imb128.put(key, value, semaphore).unsafeRunSync()
     assert(fb == FrozenInMemoryBlock.EMPTY
       && imb128.getCurrentPageOffSet == (2 * Constants.LONG_SIZE_IN_BYTES) + 5)
   }
@@ -74,7 +74,7 @@ class InMemoryBlockSpec extends BaseSpec {
       val bv = ByteVector.fromLong(1000, 8, ByteOrdering.BigEndian)
       val key = ByteBuffer.wrap(bv.toArray)
       val value = ByteBuffer.wrap(bv.toArray)
-      _ => imb128.add(key, value, semaphore)
+      _ => imb128.put(key, value, semaphore)
     }.sequence.unsafeRunSync()
     assert(imb128.getCurrentPageOffSet == (2 * Constants.LONG_SIZE_IN_BYTES) + 5)
 

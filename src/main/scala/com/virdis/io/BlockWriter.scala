@@ -24,13 +24,13 @@ import java.nio.{ByteBuffer, MappedByteBuffer}
 import java.nio.channels.FileChannel
 
 import cats.implicits._
-import cats.effect.{ContextShift, Effect, Resource, Sync}
-import com.virdis.bloom.BloomFilter
+import cats.effect.{ContextShift, Resource, Sync}
+import com.virdis.bloom.{BloomFilterF}
 import com.virdis.models._
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.{Config, Constants, Utils}
-import scodec.bits.{BitVector, ByteOrdering, ByteVector}
+import scodec.bits.{ByteOrdering, ByteVector}
 import cats.collections.{Range => CatsRange}
 
 final class BlockWriter[F[_]](
@@ -53,8 +53,7 @@ final class BlockWriter[F[_]](
     val dataBufferSize  = totalPages * config.pageSize
     val dataBuffer      = ByteBuffer.allocateDirect(dataBufferSize)
     val pages           = new PageAlignedDataBuffer(totalPages, config.pageSize, dataBuffer)
-    var bitVector       = BitVector.fill(config.bloomFilterBits)(false)
-    val bloomFilter     = new BloomFilter(config.bloomFilterBits, config.bloomFilterHashes)
+    val bloomFilter     = new BloomFilterF(config.bloomFilterBits, config.bloomFilterHashes)
     while(iterator.hasNext) {
       val key: Long         = iterator.next()
       val pb: PayloadBuffer = map.get(key)
@@ -62,7 +61,7 @@ final class BlockWriter[F[_]](
       val (page,offSet) = pages.add(pb)
       val generatedKey  = GeneratedKey(key)
       indexBuffer.add(generatedKey, page, offSet)
-      if (config.isBloomEnabled) bitVector = bloomFilter.add(bitVector, generatedKey)
+      if (config.isBloomEnabled) bloomFilter.put(generatedKey)
     }
     BlockWriterResult(
       pages,
@@ -70,7 +69,7 @@ final class BlockWriter[F[_]](
       keySet.size(),
       MinKey(map.firstEntry().getKey),
       MaxKey(map.lastEntry().getKey),
-      bitVector
+      bloomFilter
     )
   }
 
@@ -96,11 +95,11 @@ final class BlockWriter[F[_]](
     (indexPosition, noOfKeys)
   }
 
-  def writeBloomFilter(mappedByteBuffer: MappedByteBuffer, bloomFilter: BitVector): (Position, Size) = {
+  def writeBloomFilter(mappedByteBuffer: MappedByteBuffer, bloomFilter: Array[Int]): (Position, Size) = {
     val bfilterPosition = mappedByteBuffer.position()
-    val bfBuffer = bloomFilter.toByteArray
-    mappedByteBuffer.put(ByteBuffer.wrap(bfBuffer))
-    (bfilterPosition, bloomFilter.size.toInt)
+    val intBB = ByteBuffer.allocate(bloomFilter.size * 4)
+    bloomFilter.foreach(i => mappedByteBuffer.putInt(i))
+    (bfilterPosition, bloomFilter.size)
   }
 
   def writeFooter(mappedByteBuffer: MappedByteBuffer, footer: Footer, config: Config) = {
@@ -187,7 +186,7 @@ final class BlockWriter[F[_]](
                 F.flatMap(C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(F.delay(writeIndex(mappedByteBuffer,
                   blockWriterResult.indexByteBuffer, blockWriterResult.totalNoKeys)))){
                   case (indexPos, noOfKeys) =>
-                    F.flatMap(C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(F.delay(writeBloomFilter(mappedByteBuffer, blockWriterResult.bloomFilter)))){
+                    F.flatMap(C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(F.delay(writeBloomFilter(mappedByteBuffer, blockWriterResult.bloomFilter.bloomfilter)))){
                       case (bfPos, bfSize) =>
                         F.delay {
                           val footer = Footer(

@@ -25,7 +25,6 @@ import net.jpountz.xxhash.{XXHash64, XXHashFactory}
 
 trait Hasher[A] {
   def instance: A
-  def hash(key: ByteBuffer): GeneratedKey
   def hash(key: Array[Byte]): GeneratedKey
 }
 
@@ -33,9 +32,6 @@ object Hasher {
 
   implicit val xxhash64: Hasher[XXHash64] = new Hasher[XXHash64] {
     @inline final override val instance: XXHash64 = XXHashFactory.fastestInstance().hash64()
-
-    @inline final override def hash(key: ByteBuffer): GeneratedKey = GeneratedKey(instance.hash(key, Constants.XXHASH_SEED))
-
     @inline final override def hash(key: Array[Byte]): GeneratedKey = GeneratedKey(instance.hash(key, 0, key.size, Constants.XXHASH_SEED))
   }
 }

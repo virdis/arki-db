@@ -17,16 +17,13 @@
  *
  */
 
-package com.virdis.models
+package com.virdis.api
 
-import com.virdis.bloom.BloomFilterF
+import java.nio.ByteBuffer
 
-final case class BlockWriterResult(
-                                    underlying: PageAlignedDataBuffer,
-                                    indexByteBuffer: IndexByteBuffer,
-                                    totalNoKeys: Int,
-                                    minKey: MinKey,
-                                    maxKey: MaxKey,
-                                    bloomFilter: BloomFilterF
-                                  )
+import cats.effect.concurrent.Semaphore
 
+trait ArKiStoreApi[F[_], Hash] {
+
+ def put[R](key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]): F[R]
+}

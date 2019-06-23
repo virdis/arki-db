@@ -20,47 +20,54 @@ package com.virdis.bloom
 
 import java.nio.{ByteBuffer, ByteOrder}
 
+import com.virdis.hashing.Hasher
 import com.virdis.models.GeneratedKey
 import com.virdis.utils.{Config, Constants}
 import net.jpountz.xxhash.{XXHash64, XXHashFactory}
-import scodec.bits.{BitVector, ByteOrdering}
+import scodec.bits.{BitVector, ByteOrdering, ByteVector}
 
-// https://stackoverflow.com/questions/48727174/bloom-filters-and-its-multiple-hash-functions
-final class BloomFilter(val bits: Int, val hashes: Int) {
-  // make these configurable
-  val hasher: XXHash64 = XXHashFactory.fastestInstance().hash64()
+// https://stackoverflow.com/questions/48727173/bloom-filters-and-its-multiple-hash-functions
 
-  final def add(bv: BitVector, generatedKey: GeneratedKey): BitVector = {
-    val hash1 = hasher.hash(
-      ByteBuffer.wrap(BitVector.fromLong(generatedKey.underlying, 64, ByteOrdering.BigEndian).toByteArray),
-      Constants.BLOOM_SEED)
-    val hash2 = hasher.hash(
-      ByteBuffer.wrap(BitVector.fromLong(hash1, 64, ByteOrdering.BigEndian).toByteArray),
-      Constants.BLOOM_SEED)
-    var i = 0
-    var bitVector = bv
-    while (i < hashes) {
-      val bitToSet = ((hash1 + (i * hash2)) & Long.MaxValue) % bits
-      bitVector = bitVector.set(bitToSet)
-      i += 1
-    }
-    bitVector
+trait BloomFilter {
+  final val hasher = Hasher.xxhash64
+  def bits: Int
+  def hashes: Int
+  val bloomfilter: Array[Int] = new Array[Int](bits)
+
+  @inline final def genHashes(generatedKey: GeneratedKey): (GeneratedKey, GeneratedKey) = {
+    val hash1 = hasher.hash(BitVector.fromLong(generatedKey.underlying, 64, ByteOrdering.BigEndian).toByteArray)
+    val hash2 = hasher.hash(BitVector.fromLong(hash1.underlying, 64, ByteOrdering.BigEndian).toByteArray)
+    (hash1, hash2)
+  }
+  // using GeneratedKey value class for hashes, refactor
+  @inline final def getBit(hash1: GeneratedKey, hash2: GeneratedKey, idx: Int): Long = {
+    ((hash1.underlying + (idx * hash2.underlying)) & Long.MaxValue) % bits
   }
 
-  final def contains(bv: BitVector, generatedKey: GeneratedKey): Boolean = {
-    val hash1 = hasher.hash(generatedKey.toBuffer, Constants.BLOOM_SEED)
-    val bb = ByteBuffer.allocate(Constants.LONG_SIZE_IN_BYTES).order(ByteOrder.BIG_ENDIAN)
-    bb.putLong(hash1)
-    bb.flip()
-    val hash2 = hasher.hash(bb, Constants.BLOOM_SEED)
+  final def put(generatedKey: GeneratedKey) = {
+    val (hash1, hash2) = genHashes(generatedKey)
+    var i = 0
+    while (i < hashes) {
+      val bitToSet = getBit(hash1, hash2, i)
+      bloomfilter(bitToSet.toInt) = 1
+      i += 1
+    }
+  }
+
+  final def contains(generatedKey: GeneratedKey): Boolean = {
+    val (hash1, hash2) = genHashes(generatedKey)
     var i = 0
     var result = true
     while (i < hashes) {
-      val bitToCheck: Long = ((hash1 + (i * hash2)) & Long.MaxValue) % bits
-      val bitValue = bv.get(bitToCheck)
+      val bitToCheck: Long = getBit(hash1, hash2, i)
+      val bitValue = if (bloomfilter(bitToCheck.toInt) == 1) true else false
       result = result && bitValue // maybe return early
       i += 1
     }
     result
   }
 }
+
+final class BloomFilterF(override val bits: Int,
+                         override val hashes: Int) extends BloomFilter
+

@@ -18,6 +18,8 @@
 
 package com.virdis.utils
 
+import scodec.bits.BitVector
+
 object Tags {
   trait Default
 }
@@ -26,3 +28,4 @@ trait CacheKind
 case object BFCache extends CacheKind
 case object IndexCache extends CacheKind
 case object DataCache extends CacheKind
+

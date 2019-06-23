@@ -19,10 +19,8 @@
 
 package com.virdis.search
 
-import java.nio.ByteBuffer
-
 import cats.effect.{ContextShift, Sync}
-import com.virdis.bloom.BloomFilter
+import com.virdis.bloom.BloomFilterF
 import com.virdis.hashing.Hasher
 import com.virdis.models.{ArKiResult, BloomFilterError, CacheKeyNotFound, Footer, GeneratedKey, IndexError, RangeFValue, SearchResult}
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
@@ -36,11 +34,11 @@ final class SearchF[F[_]](
                          config:    Config
                          )(implicit F: Sync[F], C: ContextShift[F]) {
   final val hasher: Hasher[XXHash64] = Hasher.xxhash64
-  final val bloomFilter              = new BloomFilter(config.bloomFilterBits, config.bloomFilterHashes)
+  final val bloomFilter              = new BloomFilterF(config.bloomFilterBits, config.bloomFilterHashes)
   type KVBuffers = (Array[Byte], Array[Byte])
   type Result = Either[ArKiResult, KVBuffers]
   // search
-  def get(key: ByteBuffer): F[Result] = {
+  def get(key: Array[Byte]): F[Result] = {
     F.flatMap(F.delay(hasher.hash(key))) {
       genKey =>
         F.flatMap(rangeF.get(genKey.underlying)) {
@@ -74,7 +72,7 @@ final class SearchF[F[_]](
       key =>
         F.flatMap(inmemoryF.bloomFilterCache.get(key, InMemoryCacheF.defaultBFilterFetch)) {
           bitVec =>
-            F.ifM(F.delay(bloomFilter.contains(bitVec, generatedKey)))(
+            F.ifM(F.delay(bloomFilter.contains(generatedKey)))(
               F.delay(Right(key)),
               F.delay(Left(BloomFilterError))
             )

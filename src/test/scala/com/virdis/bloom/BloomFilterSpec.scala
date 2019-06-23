@@ -45,34 +45,16 @@ class BloomFilterSpec extends BaseSpec {
     */
   class Fixture {
 
-    val bf = new BloomFilter(bits, hashes)
+    val bf = new BloomFilterF(bits, hashes)
     val random = new Random()
   }
-  it should "add should set bits to 1" in {
+  it should "" in {
     val f = new Fixture
     import f._
-    var bitVector = BitVector.fill(bf.bits)(false)
-    val list = List.fill(5000)(random.nextLong())
-    val idxList: List[ListBuffer[Long]] = list.map(getIndices)
-    list.foreach(l => bitVector = bf.add(bitVector, GeneratedKey(l)))
-    val bools = list.map(l => bf.contains(bitVector, GeneratedKey(l)))
-    Future{ assert(bools.fold(true)(_ && _)) }
+    val list = List.fill(100)(random.nextLong())
 
+    ???
 
   }
 
-  def getIndices(k: Long) = {
-    val bv = BitVector.fromLong(k, 64, ByteOrdering.BigEndian)
-    val hash1 = hasher.hash(ByteBuffer.wrap(bv.toByteArray), Constants.BLOOM_SEED)
-    val bv2 = BitVector.fromLong(hash1, 64, ByteOrdering.BigEndian)
-    val hash2 = hasher.hash(ByteBuffer.wrap(bv.toByteArray), Constants.BLOOM_SEED)
-    var i = 0
-    var listBuffer = new scala.collection.mutable.ListBuffer[Long]
-    while(i < 5) {
-      val index = ((hash1 + (i * hash2)) & Long.MaxValue) % bits
-      listBuffer.append(index)
-      i+=1
-    }
-    listBuffer
-  }
 }
