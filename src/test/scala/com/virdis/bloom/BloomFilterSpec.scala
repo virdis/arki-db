@@ -22,6 +22,7 @@ package com.virdis.bloom
 import java.util.Random
 
 import com.virdis.BaseSpec
+import com.virdis.models.GeneratedKey
 import net.jpountz.xxhash.{XXHash64, XXHashFactory}
 
 class BloomFilterSpec extends BaseSpec {
@@ -40,13 +41,30 @@ class BloomFilterSpec extends BaseSpec {
     val bf = new BloomFilterF(bits, hashes)
     val random = new Random()
   }
-  it should "" in {
+  it should "return true if element is present" in {
+    val f = new Fixture
+    import f._
+    val num1 = random.nextLong()
+    bf.put(GeneratedKey(num1))
+    assert(bf.contains(GeneratedKey(num1)))
+  }
+  it should "return false if element is not present" in {
+    val f = new Fixture
+    import f._
+    val num1 = random.nextLong()
+    bf.put(GeneratedKey(num1))
+    assert(!bf.contains(GeneratedKey(num1+1)))
+  }
+
+  it should "BloomFilter put/contains" in {
     val f = new Fixture
     import f._
     val list = List.fill(100)(random.nextLong())
-
-    ???
-
+    val generateKeys = list.map(GeneratedKey)
+    generateKeys.foreach(bf.put)
+    val containsResult = generateKeys.map(bf.contains)
+    val result = containsResult.fold(true)(_ && _)
+    assert(result)
   }
 
 }
