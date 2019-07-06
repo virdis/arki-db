@@ -145,7 +145,7 @@ class BlockWriterFSpec extends BaseSpec {
       val config = new Config(blockSize = 4194304, dataDirectory = ".")
       val pgadbBV = ByteBuffer.allocate(1048576)
       (0 to 500).foreach{i => pgadbBV.putInt(i)}
-      val pgAD = new PageAlignedDataBuffer(10, 100, pgadbBV)
+      val pgAD = new PageAlignedDataBuffer(100, pgadbBV)
       val indxBV = ByteBuffer.allocate( 500 * Constants.INDEX_KEY_SIZE)
       (1 to 500).foreach{i =>
         indxBV.putLong(i.toLong); indxBV.putInt(i); indxBV.putInt(i)}
