@@ -23,7 +23,6 @@ import java.nio.ByteBuffer
 // should validate inputs???
 
 final class PageAlignedDataBuffer(
-                   val noOfPages: Int,
                    val pageSize: Int,
                    val buffer: ByteBuffer
                  ) {

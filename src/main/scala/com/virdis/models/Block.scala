@@ -24,6 +24,46 @@ import java.nio.ByteBuffer
 import cats.effect.{ContextShift, Sync}
 import com.virdis.utils.Utils
 
+/**
+  * Block Design:
+  * Default size 64 MB
+  *
+  *              |--------------------------------------------------|
+  *              | DataByteBuffer - stores payload in               |
+  *              |                  page aligned data block.        |
+  *              |                  Default size of data block      |
+  *              |                  4096 bytes.                     |
+  *              |--------------------------------------------------|
+  *              | Index          - stores key, page and offset.    |
+  *              |                  page represents the numerical   |
+  *              |                  value of the page aligned data  |
+  *              |                  block, offset represents the    |
+  *              |                  index of the data in the page.  |
+  *              |--------------------------------------------------|
+  *              | BloomFilter    - use to check if the key is      |
+  *              |                  present in the block.           |
+  *              |--------------------------------------------------|
+  *              | Footer                                           |
+  *              |                                                  |
+  *              |  ----------------------------------------------  |
+  *              | | a |  b |  d  |  e |  f |  g  |  h |  i |  j  | |
+  *              |  ----------------------------------------------  |
+  *              |  a - Timestamp (creation time)                   |
+  *              |  b - MinKey (smallest key in the block)          |
+  *              |  c - MaxKey (largest key in the block)           |
+  *              |  d - DataBufferOffset (offset in the block where |
+  *              |      DataBuffer is written)                      |
+  *              |  e - DataBufferSize (size of DataBuffer in bytes)|
+  *              |  f - IndexStartOffset (offset in the block where |
+  *              |      Index is written)                           |
+  *              |  g - NoOfKeysInIndex (number of keys in index)   |
+  *              |  h - BloomFilterOffset (offset in the block where|
+  *              |      bloomfilter is written)                     |
+  *              |  i - BlockNumber (block number in the file)      |
+  *               --------------------------------------------------
+  *
+  */
+
 final case class Block(
                 data:  DataByteBuffer,
                 index: IndexByteBuffer,

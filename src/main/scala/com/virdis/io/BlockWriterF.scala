@@ -52,12 +52,12 @@ final class BlockWriterF[F[_]](
     val indexBuffer     = new IndexByteBuffer(ByteBuffer.allocateDirect(keySet.size() * config.indexKeySize))
     val dataBufferSize  = totalPages * config.pageSize
     val dataBuffer      = ByteBuffer.allocateDirect(dataBufferSize)
-    val pages           = new PageAlignedDataBuffer(totalPages, config.pageSize, dataBuffer)
+    val pages           = new PageAlignedDataBuffer(config.pageSize, dataBuffer)
     val bloomFilter     = new BloomFilterF(config.bloomFilterBits, config.bloomFilterHashes)
     while(iterator.hasNext) {
       val key: Long         = iterator.next()
       val pb: PayloadBuffer = map.get(key)
-      // we dont need bound check here since the map will be under maxAllowedBlockSize
+      // we don't need bound check here since the map will be under maxAllowedBlockSize
       val (page,offSet) = pages.add(pb)
       val generatedKey  = GeneratedKey(key)
       indexBuffer.add(generatedKey, page, offSet)
