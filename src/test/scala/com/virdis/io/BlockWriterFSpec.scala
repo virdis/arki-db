@@ -41,7 +41,7 @@ import scodec.bits.{BitVector, ByteVector}
 import scala.collection.mutable
 import scala.util.Random
 
-class BlockWriterSpec extends BaseSpec {
+class BlockWriterFSpec extends BaseSpec {
   implicit val hasher = implicitly[Hasher[XXHash64]]
   implicit val concurrentIO = Concurrent[IO]
   implicit val semaphore = Semaphore[IO](1)

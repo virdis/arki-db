@@ -36,7 +36,7 @@ final class InMemoryCacheF[F[_]](config: Config)(implicit F: Sync[F], C: Context
 }
 
 object InMemoryCacheF {
-  // No need to create instances everytime use defaults instead
+  // No need to create instances every time use defaults instead
   // TODO use Footer to load Caches from Disk
   final val defaultBFilterFetch = new function
   .Function[String, BloomFilterF] {

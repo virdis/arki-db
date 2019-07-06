@@ -23,6 +23,6 @@ import java.io.{File, RandomAccessFile}
 import com.virdis.utils.Config
 
 final class FileF(config: Config) {
-  val name: String = s"${System.nanoTime()}_lvl1.bin"
+  def name: String = s"${System.nanoTime()}_lvl1.bin"
   val rFile: RandomAccessFile = new RandomAccessFile(new File(config.dataDirectory +"/" + name), "rw")
 }

@@ -29,7 +29,7 @@ import com.virdis.hashing.Hasher
 import com.virdis.models.{FrozenInMemoryBlock, KeyByteVector, PayloadBuffer, ValueByteVector}
 import com.virdis.utils.Config
 import cats.implicits._
-import com.virdis.io.BlockWriter
+import com.virdis.io.BlockWriterF
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import scodec.bits.ByteVector
 
@@ -43,10 +43,10 @@ abstract class InMemoryBlock[F[_], Hash](
   private final val currentPageOffSet  = new AtomicInteger(0)
   private final val pageCounter        = new AtomicInteger(0)
   private final val maxAllowedBytes    = new AtomicInteger(0)
-  final val blockWriter                = new BlockWriter[F](config, inmemoryF, rangeF)
+  final val blockWriter                = new BlockWriterF[F](config, inmemoryF, rangeF)
 
-  @inline def getCurrentPageOffSet = currentPageOffSet.get()
-  @inline def getCurrentPage       = pageCounter.get()
+  @inline final def getCurrentPageOffSet = currentPageOffSet.get()
+  @inline final def getCurrentPage       = pageCounter.get()
 
   def add0(
             key: Long,

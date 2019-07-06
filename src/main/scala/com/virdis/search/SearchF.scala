@@ -83,7 +83,7 @@ final class SearchF[F[_]](
   def searchIndex(generatedKey: GeneratedKey, footer: Footer, key: String): F[SearchResult] = {
     F.flatMap(inmemoryF.indexCache.get(key, InMemoryCacheF.defaultBBCacheFetch)) {
       indexByteBuff =>
-        F.flatMap(F.delay(indexByteBuff.duplicate())) {
+        F.flatMap(F.delay(Utils.duplicateAndFlipBuffer(indexByteBuff))) {
           ibb =>
             bisearch.binarySearch(ibb, generatedKey.underlying,
               Constants.INDEX_KEY_SIZE ,0, footer.noOfKeysInIndex.underlying)
@@ -94,7 +94,7 @@ final class SearchF[F[_]](
   def searchData(searchResult: SearchResult, key: String): F[KVBuffers] = {
     F.flatMap(inmemoryF.dataCache.get(key, InMemoryCacheF.defaultBBCacheFetch)) {
       dataByteBuff =>
-        F.flatMap(F.delay(dataByteBuff.duplicate())) {
+        F.flatMap(F.delay(Utils.duplicateAndFlipBuffer(dataByteBuff))) {
           dbb =>
             val address = (config.pageSize * searchResult.page.underlying) + searchResult.offSet.underlying
             val (key, value) = Utils.kvByteBuffers(address, dbb)

@@ -44,7 +44,7 @@ object Utils {
 
   @inline final def calculateOffset(page: Page, offSet: Offset, pageSize: Int): Int = (page.underlying * pageSize) + offSet.underlying
 
-  final def kvByteBuffers(idx: Int, dataBuffer: ByteBuffer): (Array[Byte], Array[Byte]) = {
+  @inline final def kvByteBuffers(idx: Int, dataBuffer: ByteBuffer): (Array[Byte], Array[Byte]) = {
     dataBuffer.position(idx)
     val keySize = dataBuffer.getShort
     val key = new Array[Byte](keySize)
@@ -72,4 +72,9 @@ object Utils {
   @inline final def buildKey(footer: Footer): String =
     footer.minKey.underlying.toString + footer.maxKey.underlying.toString
 
+  @inline final def duplicateAndFlipBuffer(buffer: ByteBuffer): ByteBuffer = {
+    val duplicate = buffer.duplicate()
+    duplicate.flip()
+    duplicate
+  }
 }
