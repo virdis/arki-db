@@ -1,4 +1,3 @@
-
 /*
  *
  *     Copyright (c) 2019 Sandeep Virdi
@@ -17,8 +16,11 @@
  *
  */
 
-package com.virdis.models
+package com.virdis.search.inmemory
 
-import cats.collections.{Range => CatsRange}
+import com.virdis.models.InMemoryRangeSearch
 
-case class RangeFValue(range: CatsRange[Long], name: String, footer: Footer)
+trait Range[F[_]] {
+  def add(inmemorysearch: InMemoryRangeSearch): F[Unit]
+  def get(key: Long): F[Option[InMemoryRangeSearch]]
+}

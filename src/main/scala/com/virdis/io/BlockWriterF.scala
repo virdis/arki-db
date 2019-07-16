@@ -30,13 +30,14 @@ import com.virdis.models._
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.{Config, Constants, Utils}
-import scodec.bits.{ByteOrdering, ByteVector}
+import scodec.bits.{BitVector, ByteOrdering, ByteVector}
 import cats.collections.{Range => CatsRange}
+import com.virdis.search.inmemory._
 
 final class BlockWriterF[F[_]](
                                config:  Config,
                                inmemoryF: InMemoryCacheF[F],
-                               rangeF:  RangeF[F]
+                               range: Range[F]
                              )(implicit F: Sync[F], C: ContextShift[F]){
 
   type Position = Int
@@ -125,7 +126,7 @@ final class BlockWriterF[F[_]](
     mappedByteBuffer.put(noOfKeys.toArray)
     mappedByteBuffer.put(bfOffset.toArray)
     mappedByteBuffer.put(blockNo.toArray)
-
+    mappedByteBuffer
   }
 
   def readFooter(mappedByteBuffer: MappedByteBuffer): Footer = {
@@ -163,8 +164,8 @@ final class BlockWriterF[F[_]](
 
   def updateCaches(bwr: BlockWriterResult, footer: Footer, fileName: String): F[Unit] = {
     val key = Utils.buildKey(footer)
-    val rangeFValue = RangeFValue(CatsRange(footer.minKey.underlying, footer.maxKey.underlying), fileName, footer)
-    rangeF.add(rangeFValue)
+    val rangeFValue = InMemoryRangeSearch(CatsRange(footer.minKey.underlying, footer.maxKey.underlying), fileName, footer)
+    range.add(rangeFValue)
     inmemoryF.bloomFilterCache.put(key, bwr.bloomFilter)
     inmemoryF.indexCache.put(key, Utils.duplicateAndFlipBuffer(bwr.indexByteBuffer.underlying))
     inmemoryF.dataCache.put(key, Utils.duplicateAndFlipBuffer(bwr.underlying.buffer))

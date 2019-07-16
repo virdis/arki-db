@@ -21,7 +21,7 @@ package com.virdis.search.inmemory
 
 import cats.effect.{Concurrent, IO, Sync}
 import com.virdis.BaseSpec
-import com.virdis.models.{BFilterStartOffset, BlockNumber, DataBufferOffSet, DataBufferSize, Footer, IndexStartOffSet, MaxKey, MinKey, NoOfKeysInIndex, RangeFValue, Ts}
+import com.virdis.models.{BFilterStartOffset, BlockNumber, DataBufferOffSet, DataBufferSize, Footer, IndexStartOffSet, MaxKey, MinKey, NoOfKeysInIndex, InMemoryRangeSearch, Ts}
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -76,7 +76,7 @@ class RangeFSpec extends BaseSpec {
       i =>
         val footer = buildFooter
         buffer.append(footer)
-        rangeF.add(RangeFValue(CatsRange[Long](footer.minKey.underlying, footer.maxKey.underlying), "a", footer)).start.unsafeRunSync()
+        rangeF.add(InMemoryRangeSearch(CatsRange[Long](footer.minKey.underlying, footer.maxKey.underlying), "a", footer)).start.unsafeRunSync()
     }
     val res = buffer.toList.map {
       f => rangeF.get(f.minKey.underlying)
@@ -93,7 +93,7 @@ class RangeFSpec extends BaseSpec {
         val (footer, searchKey) = buildRange
         buffer.append(footer)
         searchKeyBuffer.append(searchKey)
-        rangeF.add(RangeFValue(CatsRange[Long](footer.minKey.underlying, footer.maxKey.underlying) ,
+        rangeF.add(InMemoryRangeSearch(CatsRange[Long](footer.minKey.underlying, footer.maxKey.underlying) ,
           "b", footer)).start.unsafeRunSync()
     }
     val res = searchKeyBuffer.toList.map {

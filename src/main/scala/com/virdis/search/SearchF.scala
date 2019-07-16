@@ -22,7 +22,7 @@ package com.virdis.search
 import cats.effect.{ContextShift, Sync}
 import com.virdis.bloom.BloomFilterF
 import com.virdis.hashing.Hasher
-import com.virdis.models.{ArKiResult, BloomFilterError, CacheKeyNotFound, Footer, GeneratedKey, IndexError, RangeFValue, SearchResult}
+import com.virdis.models.{ArKiResult, BloomFilterError, CacheKeyNotFound, Footer, GeneratedKey, IndexError, InMemoryRangeSearch, SearchResult}
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import com.virdis.utils.{Config, Constants, Utils}
 import net.jpountz.xxhash.XXHash64
@@ -67,7 +67,7 @@ final class SearchF[F[_]](
     }
   }
 
-  def searchBloomFilter(generatedKey: GeneratedKey, rangeFValue: RangeFValue): F[Either[ArKiResult, String]] = {
+  def searchBloomFilter(generatedKey: GeneratedKey, rangeFValue: InMemoryRangeSearch): F[Either[ArKiResult, String]] = {
     F.flatMap(F.delay(Utils.buildKey(rangeFValue.footer))) {
       key =>
         F.flatMap(inmemoryF.bloomFilterCache.get(key, InMemoryCacheF.defaultBFilterFetch)) {

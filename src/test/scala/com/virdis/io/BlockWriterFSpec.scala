@@ -19,8 +19,8 @@
 
 package com.virdis.io
 
-import java.io.RandomAccessFile
-import java.nio.ByteBuffer
+import java.io.{File, RandomAccessFile}
+import java.nio.{ByteBuffer, ByteOrder}
 import java.nio.channels.FileChannel
 import java.nio.file.{Files, Path, Paths}
 import java.util
@@ -33,7 +33,7 @@ import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
 import com.virdis.models._
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
-import com.virdis.utils.{Config, Constants}
+import com.virdis.utils.{Config, Constants, Utils}
 import net.jpountz.xxhash.XXHash64
 import org.scalacheck.Gen
 import scodec.bits.{BitVector, ByteVector}
@@ -244,9 +244,9 @@ class BlockWriterFSpec extends BaseSpec {
     val inmemoryF = new InMemoryCacheF[IO](cfg)
     val imb = new InMemoryBlock[IO, XXHash64](cfg, inmemoryF, rangeF, hasher) {}
     val fileName = imb.blockWriter.write(bwr).unsafeRunSync()
+    println(s"FileName=${fileName}")
     val rafAccess = new RandomAccessFile(cfg.dataDirectory+"/"+fileName, "rw")
-    val channel = rafAccess.getChannel.map(FileChannel.MapMode.READ_WRITE,
-      cfg.blockSize - Constants.FOOTER_SIZE, Constants.FOOTER_SIZE)
+    val channel = rafAccess.getChannel.map(FileChannel.MapMode.READ_WRITE, cfg.blockSize - Constants.FOOTER_SIZE, Constants.FOOTER_SIZE)
     val footer = imb.blockWriter.readFooter(channel)
     val dataBuffer = rafAccess.getChannel.map(FileChannel.MapMode.READ_ONLY, footer.dataBufferOffSet.underlying, footer.dataBufferSize.underlying)
     val indexBB = rafAccess.getChannel.map(FileChannel.MapMode.READ_ONLY,
@@ -255,11 +255,13 @@ class BlockWriterFSpec extends BaseSpec {
     bwr.underlying.buffer.flip()
 
     val bfBB = rafAccess.getChannel.map(FileChannel.MapMode.READ_ONLY, footer.bfilterStartOffset.underlying, cfg.bloomSizeInBytes)
-    Files.deleteIfExists(Paths.get(fileName))
+    Files.deleteIfExists(Paths.get(cfg.dataDirectory + "/" + fileName))
     assert(
       bwr.underlying.buffer.equals(dataBuffer)
-      && bwr.indexByteBuffer.underlying.equals(indexBB)
+        && bwr.indexByteBuffer.underlying.equals(indexBB)
     )
+
+    assert(true)
   }
 }
 

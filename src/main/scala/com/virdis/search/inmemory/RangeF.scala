@@ -21,29 +21,29 @@ package com.virdis.search.inmemory
 
 import cats.effect.{Concurrent, ContextShift, IO, Sync}
 import cats.effect.concurrent.{MVar, Ref}
-import com.virdis.models.{Footer, RangeFValue}
+import com.virdis.models.{Footer, InMemoryRangeSearch}
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import cats.collections.{Range => CatsRange}
 // TODO replace this with Interval Tree
-final class RangeF[F[_]]()(implicit F:  Sync[F], C: Concurrent[F]) {
+final class RangeF[F[_]]()(implicit F:  Sync[F], C: Concurrent[F]) extends Range[F] {
 
   // order should be recent to old
-  private final val refListBuffer = Ref.of[F, mutable.ListBuffer[RangeFValue]](ListBuffer.empty)
+  private final val refListBuffer = Ref.of[F, mutable.ListBuffer[InMemoryRangeSearch]](ListBuffer.empty)
 
-  def add(rangev: RangeFValue): F[Unit] = {
+  override final def add(inMemoryRangeSearch: InMemoryRangeSearch): F[Unit] = {
     F.flatMap(refListBuffer) {
       rlb =>
        rlb.modify {
          lb =>
-           lb.prepend(rangev)
+           lb.prepend(inMemoryRangeSearch)
            (lb, F.unit)
        }
     }
   }
 
-  def get(key: Long): F[Option[RangeFValue]] = {
+  override final def get(key: Long): F[Option[InMemoryRangeSearch]] = {
     F.flatMap(refListBuffer) {
       rlb =>
         F.flatMap(rlb.get){
@@ -52,4 +52,5 @@ final class RangeF[F[_]]()(implicit F:  Sync[F], C: Concurrent[F]) {
         }
     }
   }
+
 }

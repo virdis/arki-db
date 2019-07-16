@@ -17,14 +17,8 @@
  *
  */
 
-package com.virdis.io
+package com.virdis.models
 
-import java.io.{File, RandomAccessFile}
-import java.nio.channels.FileChannel
+import cats.collections.{Range => CatsRange}
 
-import com.virdis.utils.Config
-
-final class FileF(config: Config) {
-  val name: String = s"${System.nanoTime()}_level1.bin"
-  val rFile: RandomAccessFile = new RandomAccessFile(new File(config.dataDirectory +"/" + name), "rws")
-}
+case class InMemoryRangeSearch(range: CatsRange[Long], name: String, footer: Footer)
