@@ -24,9 +24,9 @@ import java.nio.ByteBuffer
 import cats.effect.Sync
 import com.virdis.models.{GeneratedKey, Offset, Page, SearchResult}
 
-final class BlockIndexSearch[F[_]](implicit F: Sync[F]) {
+final class BlockIndexSearchF[F[_]](implicit F: Sync[F]) extends IndexSearch[F] {
   // TODO REMOVE PRINTLN
-  private def binarySearchByteBuffer0(
+  private final def binarySearchByteBuffer0(
                                searchBuffer: ByteBuffer,
                                searchKey: Long,
                                skipKeySize: Int,
@@ -64,7 +64,7 @@ final class BlockIndexSearch[F[_]](implicit F: Sync[F]) {
     SearchResult.NOT_FOUND
   }
 
-  def binarySearch(
+  final def binarySearch(
                     searchBuffer: ByteBuffer,
                     searchKey: Long,
                     skipKeySize: Int,

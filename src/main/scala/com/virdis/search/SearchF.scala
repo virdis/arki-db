@@ -28,10 +28,10 @@ import com.virdis.utils.{Config, Constants, Utils}
 import net.jpountz.xxhash.XXHash64
 
 final class SearchF[F[_]](
-                         rangeF:    RangeF[F],
-                         inmemoryF: InMemoryCacheF[F],
-                         bisearch:  BlockIndexSearch[F],
-                         config:    Config
+                           rangeF:            RangeF[F],
+                           inmemoryF:         InMemoryCacheF[F],
+                           blockIndexSearch:  IndexSearch[F],
+                           config:            Config
                          )(implicit F: Sync[F], C: ContextShift[F]) {
   final val hasher: Hasher[XXHash64] = Hasher.xxhash64
   final val bloomFilter              = new BloomFilterF(config.bloomFilterBits, config.bloomFilterHashes)
@@ -85,7 +85,7 @@ final class SearchF[F[_]](
       indexByteBuff =>
         F.flatMap(F.delay(Utils.duplicateAndFlipBuffer(indexByteBuff))) {
           ibb =>
-            bisearch.binarySearch(ibb, generatedKey.underlying,
+            blockIndexSearch.binarySearch(ibb, generatedKey.underlying,
               Constants.INDEX_KEY_SIZE ,0, footer.noOfKeysInIndex.underlying)
         }
     }

@@ -36,7 +36,7 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.util.Random
 
-class BlockIndexSearchSpec extends BaseSpec {
+class BlockIndexSearchFSpec extends BaseSpec {
 
   implicit val hasher = implicitly[Hasher[XXHash64]]
   implicit val concurrentIO = Concurrent[IO]
@@ -55,7 +55,7 @@ class BlockIndexSearchSpec extends BaseSpec {
     val rangeF = new RangeF[IO]
     val inmemoryF = new InMemoryCacheF[IO](config128)
     val imb128 = new InMemoryBlock[IO, XXHash64](config128, inmemoryF, rangeF, hasher) {}
-    val bis    = new BlockIndexSearch[IO]()
+    val bis    = new BlockIndexSearchF[IO]()
 
     def frozenMapForIndex(
                            imb: InMemoryBlock[IO, XXHash64],
