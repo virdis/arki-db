@@ -29,21 +29,22 @@ import com.virdis.hashing.Hasher
 import com.virdis.models.{FrozenInMemoryBlock, KeyByteVector, PayloadBuffer, ValueByteVector}
 import com.virdis.utils.Config
 import cats.implicits._
-import com.virdis.io.BlockWriterF
-import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
+import com.virdis.io.BlockWriter
+import com.virdis.search.Search
+import com.virdis.search.inmemory.{InMemoryCacheF, Range}
+import com.virdis.threadpools.IOThreadFactory
 import scodec.bits.ByteVector
 
 abstract class InMemoryBlock[F[_], Hash](
                                           val config:    Config,
-                                          val inmemoryF: InMemoryCacheF[F],
-                                          val rangeF:    RangeF[F],
-                                          val hasher:    Hasher[Hash]
-                                  )(implicit F: Sync[F], T: Concurrent[F], C: ContextShift[F]) {
+                                          val search:    Search[F],
+                                          val hasher:    Hasher[Hash],
+                                          val writer:    BlockWriter[F]
+                                  )(implicit F: Sync[F], T: Concurrent[F], C: ContextShift[F], A: Async[F]) {
   @volatile var cmap                   = new ConcurrentSkipListMap[Long, PayloadBuffer]()
   private final val currentPageOffSet  = new AtomicInteger(0)
   private final val pageCounter        = new AtomicInteger(0)
   private final val maxAllowedBytes    = new AtomicInteger(0)
-  final val blockWriter                = new BlockWriterF[F](config, inmemoryF, rangeF)
 
   @inline final def getCurrentPageOffSet = currentPageOffSet.get()
   @inline final def getCurrentPage       = pageCounter.get()
@@ -122,7 +123,6 @@ abstract class InMemoryBlock[F[_], Hash](
     }
   }
 
-  //TODO change this to add FIMB to a queue
   def put(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]): F[FrozenInMemoryBlock] = {
     for {
       genratedKey  <- F.delay {
@@ -135,12 +135,27 @@ abstract class InMemoryBlock[F[_], Hash](
 
   }
 
-  private def makeByteVectors(k: ByteBuffer, v: ByteBuffer) = {
+  def processFrozenMemoryBlock(fimb: FrozenInMemoryBlock): F[Unit] = {
+    F.ifM(F.delay(fimb == FrozenInMemoryBlock.EMPTY))(
+      F.unit,
+      {
+        val buildF: F[Unit] = for {
+          fiber <- T.start(writer.build(fimb.map, fimb.totalPages))
+          bwr   <- fiber.join
+        } yield ()
+        F.guarantee(C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(buildF))(
+          Async.shift[F](IOThreadFactory.nonBlockingPool.executionContext)(A)
+        )
+      }
+    )
+  }
+
+  private final def makeByteVectors(k: ByteBuffer, v: ByteBuffer): (KeyByteVector, ValueByteVector)= {
     (KeyByteVector(ByteVector.view(k), k.capacity()), ValueByteVector(ByteVector.view(v), v.capacity()))
   }
 
-  def get(key: ByteBuffer) = {
-
+  def get(key: ByteBuffer): F[Search.Result] = {
+    search.get(key.array())
   }
 }
 

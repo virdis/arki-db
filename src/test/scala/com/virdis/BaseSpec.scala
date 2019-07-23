@@ -28,5 +28,5 @@ import scala.concurrent.ExecutionContext
 
 class BaseSpec extends AsyncFlatSpec with Matchers {
   implicit val ioShift: ContextShift[IO] = IO.contextShift(IOThreadFactory.blockingIOPool.executionContext)
-  implicit val globalPool: ExecutionContext = IOThreadFactory.GLOBAL_POOL.executionContext
+  implicit val globalPool: ExecutionContext = IOThreadFactory.nonBlockingPool.executionContext
 }

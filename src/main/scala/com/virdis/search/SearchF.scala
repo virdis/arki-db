@@ -22,7 +22,8 @@ package com.virdis.search
 import cats.effect.{ContextShift, Sync}
 import com.virdis.bloom.BloomFilterF
 import com.virdis.hashing.Hasher
-import com.virdis.models.{ArKiResult, BloomFilterError, CacheKeyNotFound, Footer, GeneratedKey, IndexError, InMemoryRangeSearch, SearchResult}
+import com.virdis.models.{ArKiResult, BloomFilterError, CacheKeyNotFound, Footer, GeneratedKey, InMemoryRangeSearch, IndexError, SearchResult}
+import com.virdis.search.Search.{KVBuffers, Result}
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import com.virdis.utils.{Config, Constants, Utils}
 import net.jpountz.xxhash.XXHash64
@@ -32,13 +33,11 @@ final class SearchF[F[_]](
                            inmemoryF:         InMemoryCacheF[F],
                            blockIndexSearch:  IndexSearch[F],
                            config:            Config
-                         )(implicit F: Sync[F], C: ContextShift[F]) {
+                         )(implicit F: Sync[F], C: ContextShift[F]) extends Search[F] {
   final val hasher: Hasher[XXHash64] = Hasher.xxhash64
   final val bloomFilter              = new BloomFilterF(config.bloomFilterBits, config.bloomFilterHashes)
-  type KVBuffers = (Array[Byte], Array[Byte])
-  type Result = Either[ArKiResult, KVBuffers]
   // search
-  def get(key: Array[Byte]): F[Result] = {
+  final def get(key: Array[Byte]): F[Result] = {
     F.flatMap(F.delay(hasher.hash(key))) {
       genKey =>
         F.flatMap(rangeF.get(genKey.underlying)) {

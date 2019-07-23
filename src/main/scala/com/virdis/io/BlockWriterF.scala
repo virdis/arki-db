@@ -24,7 +24,7 @@ import java.nio.{ByteBuffer, ByteOrder, MappedByteBuffer}
 import java.nio.channels.FileChannel
 
 import cats.implicits._
-import cats.effect.{ContextShift, Resource, Sync}
+import cats.effect.{Async, ContextShift, Resource, Sync}
 import com.virdis.bloom.BloomFilterF
 import com.virdis.models._
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
@@ -38,7 +38,7 @@ final class BlockWriterF[F[_]](
                                config:  Config,
                                inmemoryF: InMemoryCacheF[F],
                                range: Range[F]
-                             )(implicit F: Sync[F], C: ContextShift[F]){
+                             )(implicit F: Sync[F], C: ContextShift[F], A: Async[F]) extends BlockWriter[F] {
 
   type Position = Int
   type Size     = Int // Size in Bytes
@@ -75,7 +75,9 @@ final class BlockWriterF[F[_]](
   }
 
   final def build(map: java.util.NavigableMap[Long, PayloadBuffer], pages: Int): F[BlockWriterResult] = {
-    C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(F.delay(build0(map, pages)))
+    F.guarantee {
+      C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(F.delay(build0(map, pages)))
+    }(Async.shift[F](IOThreadFactory.blockingIOPool.executionContext)(A))
   }
 
   def writeData(mappedByteBuffer: MappedByteBuffer, pageAlignedDataBuffer: PageAlignedDataBuffer): (Position, Size) = {

@@ -25,8 +25,7 @@ import cats.effect.{ContextShift, Sync}
 import com.virdis.utils.Utils
 
 /**
-  * Block Design:
-  * Default size 64 MB
+  * Block Design:Default size 64 MB
   *
   *              |--------------------------------------------------|
   *              | DataByteBuffer - stores payload in               |

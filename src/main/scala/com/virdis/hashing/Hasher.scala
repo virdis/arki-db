@@ -18,7 +18,6 @@
 
 package com.virdis.hashing
 
-import java.nio.ByteBuffer
 import com.virdis.models.GeneratedKey
 import com.virdis.utils.Constants
 import net.jpountz.xxhash.{XXHash64, XXHashFactory}

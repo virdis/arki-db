@@ -16,14 +16,17 @@
  *
  */
 
-package com.virdis.io
+package com.virdis.search
 
-import com.virdis.models.{BlockWriterResult, Footer, PayloadBuffer}
+import com.virdis.models.ArKiResult
 
-trait BlockWriter[F[_]]{
+trait Search[F[_]] {
 
-  def build(map: java.util.NavigableMap[Long, PayloadBuffer], pages: Int): F[BlockWriterResult]
-  def updateCaches(bwr: BlockWriterResult, footer: Footer, fileName: String): F[Unit]
-  def write(blockWriterResult: BlockWriterResult): F[String]
+  def get(key: Array[Byte]): F[Search.Result]
 
+}
+
+object Search {
+  type KVBuffers = (Array[Byte], Array[Byte])
+  type Result = Either[ArKiResult, KVBuffers]
 }
