@@ -32,6 +32,7 @@ import com.virdis.bloom.BloomFilterF
 import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
 import com.virdis.models._
+import com.virdis.search.{BlockIndexSearchF, IndexSearch, SearchF}
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import com.virdis.utils.{Config, Constants, Utils}
 import net.jpountz.xxhash.XXHash64
@@ -96,11 +97,15 @@ class BlockWriterFSpec extends BaseSpec {
 
       go(FrozenInMemoryBlock.EMPTY, 0, new mutable.HashSet[GeneratedKey](), new mutable.HashSet[ByteBuffer]())
     }
-    val rangeF = new RangeF[IO]
-    val inmemoryF = new InMemoryCacheF[IO](config)
-    val imb = new InMemoryBlock[IO, XXHash64](config, inmemoryF, rangeF, hasher) {}
-
-    val imb128 = new InMemoryBlock[IO, XXHash64](config128, inmemoryF, rangeF, hasher) {}
+    val rangeF            = new RangeF[IO]
+    val inmemoryF         = new InMemoryCacheF[IO](config)
+    val blockIndexSearchF = new BlockIndexSearchF[IO]()
+    val searchF    = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config)
+    val writerF    = new BlockWriterF[IO](config, inmemoryF, rangeF)
+    val imb        = new InMemoryBlock[IO, XXHash64](config, searchF, hasher, writerF) {}
+    val searchF128 = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config128)
+    val writerF128 = new BlockWriterF[IO](config128, inmemoryF, rangeF)
+    val imb128     = new InMemoryBlock[IO, XXHash64](config128, searchF128, hasher, writerF128) {}
 
     def frozenMapWithRandomData(
                                  imb: InMemoryBlock[IO, XXHash64],
@@ -159,7 +164,7 @@ class BlockWriterFSpec extends BaseSpec {
     val f = new Fixture
     import f._
     val (fimb, set, _) = frozenMapForIndex(imb, semaphore)
-    val br = imb.blockWriter.build(fimb.map, fimb.totalPages).unsafeRunSync()
+    val br = writerF.build(fimb.map, fimb.totalPages).unsafeRunSync()
     val indexByteBuffer = br.indexByteBuffer
     indexByteBuffer.underlying.flip()
     var flag = true
@@ -174,7 +179,7 @@ class BlockWriterFSpec extends BaseSpec {
     val f = new Fixture
     import f._
     val (fimb, genSet, keySet) = frozenMapForIndex(imb, semaphore)
-    val br = imb.blockWriter.build(fimb.map, fimb.totalPages).unsafeRunSync()
+    val br = writerF.build(fimb.map, fimb.totalPages).unsafeRunSync()
     val indexByteBuffer = br.indexByteBuffer
     val dataBuffer = br.underlying.buffer
     indexByteBuffer.underlying.flip()
@@ -200,7 +205,7 @@ class BlockWriterFSpec extends BaseSpec {
     val f = new Fixture
     import f._
     val (fimb, set, _) = frozenMapWithRandomData(imb128, semaphore)
-    val br = imb128.blockWriter.build(fimb.map, fimb.totalPages).unsafeRunSync()
+    val br = writerF128.build(fimb.map, fimb.totalPages).unsafeRunSync()
     val indexByteBuffer = br.indexByteBuffer
     indexByteBuffer.underlying.flip()
     var flag = true
@@ -215,7 +220,7 @@ class BlockWriterFSpec extends BaseSpec {
     val f = new Fixture
     import f._
     val (fimb, genSet, keySet) = frozenMapWithRandomData(imb128, semaphore)
-    val br = imb128.blockWriter.build(fimb.map, fimb.totalPages).unsafeRunSync()
+    val br = writerF128.build(fimb.map, fimb.totalPages).unsafeRunSync()
     val indexByteBuffer = br.indexByteBuffer
     val dataBuffer = br.underlying.buffer
     indexByteBuffer.underlying.flip()
@@ -241,13 +246,17 @@ class BlockWriterFSpec extends BaseSpec {
     import f._
     val (bwr, cfg) = buildBlockWriterResult
     val rangeF = new RangeF[IO]
+
     val inmemoryF = new InMemoryCacheF[IO](cfg)
-    val imb = new InMemoryBlock[IO, XXHash64](cfg, inmemoryF, rangeF, hasher) {}
-    val fileName = imb.blockWriter.write(bwr).unsafeRunSync()
+    val blockIndexSearchF = new BlockIndexSearchF[IO]()
+    val searchF    = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, cfg)
+    val writerF    = new BlockWriterF[IO](cfg, inmemoryF, rangeF)
+    val imb = new InMemoryBlock[IO, XXHash64](cfg, searchF, hasher, writerF) {}
+    val fileName = writerF.write(bwr).unsafeRunSync()
     println(s"FileName=${fileName}")
     val rafAccess = new RandomAccessFile(cfg.dataDirectory+"/"+fileName, "rw")
     val channel = rafAccess.getChannel.map(FileChannel.MapMode.READ_WRITE, cfg.blockSize - Constants.FOOTER_SIZE, Constants.FOOTER_SIZE)
-    val footer = imb.blockWriter.readFooter(channel)
+    val footer = writerF.readFooter(channel)
     val dataBuffer = rafAccess.getChannel.map(FileChannel.MapMode.READ_ONLY, footer.dataBufferOffSet.underlying, footer.dataBufferSize.underlying)
     val indexBB = rafAccess.getChannel.map(FileChannel.MapMode.READ_ONLY,
       footer.indexStartOffSet.underlying, footer.noOfKeysInIndex.underlying * Constants.INDEX_KEY_SIZE)

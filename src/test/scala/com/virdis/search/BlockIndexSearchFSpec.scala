@@ -26,6 +26,7 @@ import cats.effect.{Concurrent, IO, Sync}
 import com.virdis.BaseSpec
 import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
+import com.virdis.io.BlockWriterF
 import com.virdis.models._
 import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
 import com.virdis.utils.{Config, Constants}
@@ -54,8 +55,11 @@ class BlockIndexSearchFSpec extends BaseSpec {
     val random = new Random()
     val rangeF = new RangeF[IO]
     val inmemoryF = new InMemoryCacheF[IO](config128)
-    val imb128 = new InMemoryBlock[IO, XXHash64](config128, inmemoryF, rangeF, hasher) {}
-    val bis    = new BlockIndexSearchF[IO]()
+    val blockIndexSearchF = new BlockIndexSearchF[IO]()
+    val searchF    = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config128)
+    val writerF    = new BlockWriterF[IO](config128, inmemoryF, rangeF)
+    val imb128     = new InMemoryBlock[IO, XXHash64](config128, searchF, hasher, writerF) {}
+    val bis        = new BlockIndexSearchF[IO]()
 
     def frozenMapForIndex(
                            imb: InMemoryBlock[IO, XXHash64],
@@ -90,7 +94,7 @@ class BlockIndexSearchFSpec extends BaseSpec {
     val f = new Fixture
     import f._
     val (fimb, set, _) = frozenMapForIndex(imb128, semaphore)
-    val br = imb128.blockWriter.build(fimb.map, fimb.totalPages).unsafeRunSync()
+    val br = writerF.build(fimb.map, fimb.totalPages).unsafeRunSync()
     val allKeys = set.map(g => g.underlying)
     val result = Future.sequence {
       allKeys.toList.map {

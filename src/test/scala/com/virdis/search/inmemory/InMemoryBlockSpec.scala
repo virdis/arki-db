@@ -26,7 +26,9 @@ import cats.effect.{Concurrent, IO, Sync}
 import com.virdis.BaseSpec
 import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
+import com.virdis.io.BlockWriterF
 import com.virdis.models.FrozenInMemoryBlock
+import com.virdis.search.{BlockIndexSearchF, SearchF}
 import com.virdis.utils.{Config, Constants}
 import net.jpountz.xxhash.XXHash64
 import scodec.bits.{ByteOrdering, ByteVector}
@@ -51,7 +53,10 @@ class InMemoryBlockSpec extends BaseSpec {
     val random = new Random()
     val rangeF = new RangeF[IO]
     val inmemoryF = new InMemoryCacheF[IO](config128)
-    val imb128 = new InMemoryBlock[IO, XXHash64](config128, inmemoryF, rangeF, hasher) {}
+    val blockIndexSearchF = new BlockIndexSearchF[IO]()
+    val searchF    = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config128)
+    val writerF    = new BlockWriterF[IO](config128, inmemoryF, rangeF)
+    val imb128 = new InMemoryBlock[IO, XXHash64](config128, searchF, hasher, writerF) {}
   }
 
   it should "add key and update counters" in {
