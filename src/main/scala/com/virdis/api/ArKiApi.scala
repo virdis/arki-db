@@ -22,8 +22,9 @@ package com.virdis.api
 import java.nio.ByteBuffer
 
 import cats.effect.concurrent.Semaphore
+import com.virdis.search.Search
 
-trait ArKiStoreApi[F[_], Hash] {
-
- def put[R](key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]): F[R]
+trait ArKiStoreApi[F[_]] {
+ def put(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]): F[Unit]
+ def get(key: ByteBuffer): F[Search.Result]
 }
