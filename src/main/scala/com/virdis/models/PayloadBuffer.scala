@@ -28,8 +28,8 @@ import scodec.bits._
   * Represents KEYSIZE:KEY:VALUESIZE:VALUE:DELETED
   */
 
-case class KeyByteVector(underlying: ByteVector, size: Int)
-case class ValueByteVector(underlying: ByteVector, size: Int)
+final case class KeyByteVector(underlying: ByteVector, size: Int)
+final case class ValueByteVector(underlying: ByteVector, size: Int)
 
 sealed abstract case class PayloadBuffer(underlying: ByteVector)
 

@@ -27,7 +27,7 @@ import cats.implicits._
 import cats.effect.{Async, ContextShift, Resource, Sync}
 import com.virdis.bloom.BloomFilterF
 import com.virdis.models._
-import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
+import com.virdis.search.inmemory.{SearchCaches, RangeF}
 import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.{Config, Constants, Utils}
 import scodec.bits.{BitVector, ByteOrdering, ByteVector}
@@ -35,9 +35,9 @@ import cats.collections.{Range => CatsRange}
 import com.virdis.search.inmemory._
 
 final class BlockWriterF[F[_]](
-                               config:  Config,
-                               inmemoryF: InMemoryCacheF[F],
-                               range: Range[F]
+                                config:  Config,
+                                inmemoryF: SearchCaches[F],
+                                range: Range[F]
                              )(implicit F: Sync[F], C: ContextShift[F], A: Async[F]) extends BlockWriter[F] {
 
   type Position = Int

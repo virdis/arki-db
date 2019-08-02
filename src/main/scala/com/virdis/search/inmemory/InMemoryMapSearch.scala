@@ -1,5 +1,4 @@
 
-
 /*
  *
  *     Copyright (c) 2019 Sandeep Virdi
@@ -18,15 +17,13 @@
  *
  */
 
-package com.virdis
+package com.virdis.search.inmemory
 
-import cats.effect.{ContextShift, IO}
-import com.virdis.threadpools.IOThreadFactory
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import java.util
 
-import scala.concurrent.ExecutionContext
+import com.virdis.models.PayloadBuffer
 
-class BaseSpec extends AsyncFlatSpec with Matchers {
-  implicit val ioShift: ContextShift[IO]    = IO.contextShift(IOThreadFactory.blockingIOPool.executionContext)
-  implicit val globalPool: ExecutionContext = IOThreadFactory.nonBlockingPool.executionContext
+trait InMemoryMapSearch[F[_]] {
+  def putMapInBuffer(map: util.NavigableMap[Long, PayloadBuffer]): F[Unit]
+  def searchKey(key: Long): F[Option[PayloadBuffer]]
 }

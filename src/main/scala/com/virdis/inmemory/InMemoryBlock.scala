@@ -31,7 +31,7 @@ import com.virdis.utils.Config
 import cats.implicits._
 import com.virdis.io.BlockWriter
 import com.virdis.search.Search
-import com.virdis.search.inmemory.{InMemoryCacheF, Range}
+import com.virdis.search.inmemory.InMemoryMapSearch
 import com.virdis.threadpools.IOThreadFactory
 import scodec.bits.ByteVector
 
@@ -39,7 +39,8 @@ abstract class InMemoryBlock[F[_], Hash](
                                           val config:    Config,
                                           val search:    Search[F],
                                           val hasher:    Hasher[Hash],
-                                          val writer:    BlockWriter[F]
+                                          val writer:    BlockWriter[F],
+                                          val inMemoryMapSearchMap: InMemoryMapSearch[F]
                                   )(implicit F: Sync[F], T: Concurrent[F], C: ContextShift[F], A: Async[F]) {
   @volatile var cmap                   = new ConcurrentSkipListMap[Long, PayloadBuffer]()
   private final val currentPageOffSet  = new AtomicInteger(0)
@@ -49,7 +50,7 @@ abstract class InMemoryBlock[F[_], Hash](
   @inline final def getCurrentPageOffSet = currentPageOffSet.get()
   @inline final def getCurrentPage       = pageCounter.get()
 
-  def add0(
+  final def add0(
             key: Long,
             payloadBuffer: PayloadBuffer,
             guard: F[Semaphore[F]]
@@ -97,7 +98,7 @@ abstract class InMemoryBlock[F[_], Hash](
     * @param entrySizeInBytes
     * @return
     */
-  private def resetCounters(
+  final private def resetCounters(
                              key: Long,
                              payloadBuffer: PayloadBuffer,
                              guard: F[Semaphore[F]],
@@ -111,31 +112,32 @@ abstract class InMemoryBlock[F[_], Hash](
           println(s"RESET COUNTERs CMAP=${cmap.size()} MaxAllowedBytes=${maxAllowedBytes.get()} PageCounter=${pageCounter.get()} CurrentPageOff=${currentPageOffSet.get()}")
           semaphore.withPermit {
             val block = FrozenInMemoryBlock(cmap, pageCounter.get() + 1)
+            val addMap: F[Unit] = inMemoryMapSearchMap.putMapInBuffer(cmap)
             pageCounter.set(0)
             currentPageOffSet.set(0)
             maxAllowedBytes.set(0)
             val offset = currentPageOffSet.addAndGet(payloadSize)
             maxAllowedBytes.addAndGet(entrySizeInBytes)
             cmap = new ConcurrentSkipListMap[Long, PayloadBuffer]()
-            F.delay(cmap.put(key, payloadBuffer)) *> F.delay(block)
+
+            F.delay(cmap.put(key, payloadBuffer)) *> addMap *> F.delay(block)
           }
       }
     }
   }
 
-  def put(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]): F[FrozenInMemoryBlock] = {
+  final def put0(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]): F[FrozenInMemoryBlock] = {
     for {
       genratedKey  <- F.delay {
         hasher.hash(key.array())
       }
       (k, v) = makeByteVectors(key, value)
-      fiber        <- T.start(add0(genratedKey.underlying, PayloadBuffer.fromKeyValue(k, v), guard))
-      fimb         <- fiber.join
+      fimb   <- add0(genratedKey.underlying, PayloadBuffer.fromKeyValue(k, v), guard)
     } yield fimb
 
   }
 
-  def processFrozenMemoryBlock(fimb: FrozenInMemoryBlock): F[Unit] = {
+  final def processFrozenMemoryBlock(fimb: FrozenInMemoryBlock): F[Unit] = {
     F.ifM(F.delay(fimb == FrozenInMemoryBlock.EMPTY))(
       F.unit,
       {
@@ -150,11 +152,18 @@ abstract class InMemoryBlock[F[_], Hash](
     )
   }
 
+  final def put(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]) = {
+    for {
+      frozenBlock <- put0(key, value, guard)
+      _           <- processFrozenMemoryBlock(frozenBlock)
+    } yield ()
+  }
+
   private final def makeByteVectors(k: ByteBuffer, v: ByteBuffer): (KeyByteVector, ValueByteVector)= {
     (KeyByteVector(ByteVector.view(k), k.capacity()), ValueByteVector(ByteVector.view(v), v.capacity()))
   }
 
-  def get(key: ByteBuffer): F[Search.Result] = {
+  final def get(key: ByteBuffer): F[Search.Result] = {
     search.get(key.array())
   }
 }

@@ -28,14 +28,14 @@ import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.{BFCache, CacheKind, Config, DataCache, IndexCache, Utils}
 
 // TODO Build Caches from Disk
-final class InMemoryCacheF[F[_]](config: Config)(implicit F: Sync[F], C: ContextShift[F]) {
+final class SearchCaches[F[_]](config: Config)(implicit F: Sync[F], C: ContextShift[F]) {
 
   final val bloomFilterCache = CacheF.bloomFilterCache[F, String, BloomFilterF](config, BFCache)
   final val indexCache       = CacheF.byteBufferCache[F, String, ByteBuffer](config, IndexCache)
   final val dataCache        = CacheF.byteBufferCache[F, String, ByteBuffer](config, DataCache)
 }
 
-object InMemoryCacheF {
+object SearchCaches {
   // No need to create instances every time use defaults instead
   // TODO use Footer to load Caches from Disk
   final val defaultBFilterFetch = new function

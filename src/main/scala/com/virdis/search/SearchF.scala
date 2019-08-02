@@ -24,18 +24,18 @@ import com.virdis.bloom.BloomFilterF
 import com.virdis.hashing.Hasher
 import com.virdis.models.{ArKiResult, BloomFilterError, CacheKeyNotFound, Footer, GeneratedKey, InMemoryRangeSearch, IndexError, SearchResult}
 import com.virdis.search.Search.{KVBuffers, Result}
-import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
+import com.virdis.search.inmemory.{SearchCaches, RangeF}
 import com.virdis.utils.{Config, Constants, Utils}
 import net.jpountz.xxhash.XXHash64
 
 final class SearchF[F[_]](
                            rangeF:            RangeF[F],
-                           inmemoryF:         InMemoryCacheF[F],
+                           inmemoryF:         SearchCaches[F],
                            blockIndexSearch:  IndexSearch[F],
                            config:            Config
                          )(implicit F: Sync[F], C: ContextShift[F]) extends Search[F] {
-  final val hasher: Hasher[XXHash64] = Hasher.xxhash64
-  final val bloomFilter              = new BloomFilterF(config.bloomFilterBits, config.bloomFilterHashes)
+  final val hasher: Hasher[XXHash64]  = Hasher.xxhash64
+  final val bloomFilter: BloomFilterF = new BloomFilterF(config.bloomFilterBits, config.bloomFilterHashes)
   // search
   final def get(key: Array[Byte]): F[Result] = {
     F.flatMap(F.delay(hasher.hash(key))) {
@@ -69,7 +69,7 @@ final class SearchF[F[_]](
   def searchBloomFilter(generatedKey: GeneratedKey, rangeFValue: InMemoryRangeSearch): F[Either[ArKiResult, String]] = {
     F.flatMap(F.delay(Utils.buildKey(rangeFValue.footer))) {
       key =>
-        F.flatMap(inmemoryF.bloomFilterCache.get(key, InMemoryCacheF.defaultBFilterFetch)) {
+        F.flatMap(inmemoryF.bloomFilterCache.get(key, SearchCaches.defaultBFilterFetch)) {
           bitVec =>
             F.ifM(F.delay(bloomFilter.contains(generatedKey)))(
               F.delay(Right(key)),
@@ -80,7 +80,7 @@ final class SearchF[F[_]](
   }
 
   def searchIndex(generatedKey: GeneratedKey, footer: Footer, key: String): F[SearchResult] = {
-    F.flatMap(inmemoryF.indexCache.get(key, InMemoryCacheF.defaultBBCacheFetch)) {
+    F.flatMap(inmemoryF.indexCache.get(key, SearchCaches.defaultBBCacheFetch)) {
       indexByteBuff =>
         F.flatMap(F.delay(Utils.duplicateAndFlipBuffer(indexByteBuff))) {
           ibb =>
@@ -91,7 +91,7 @@ final class SearchF[F[_]](
   }
 
   def searchData(searchResult: SearchResult, key: String): F[KVBuffers] = {
-    F.flatMap(inmemoryF.dataCache.get(key, InMemoryCacheF.defaultBBCacheFetch)) {
+    F.flatMap(inmemoryF.dataCache.get(key, SearchCaches.defaultBBCacheFetch)) {
       dataByteBuff =>
         F.flatMap(F.delay(Utils.duplicateAndFlipBuffer(dataByteBuff))) {
           dbb =>

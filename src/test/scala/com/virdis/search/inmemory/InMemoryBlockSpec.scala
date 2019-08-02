@@ -37,10 +37,10 @@ import scala.util.Random
 
 class InMemoryBlockSpec extends BaseSpec {
 
-  implicit val hasher = implicitly[Hasher[XXHash64]]
+  implicit val hasher       = implicitly[Hasher[XXHash64]]
   implicit val concurrentIO = Concurrent[IO]
-  implicit val semaphore = Semaphore[IO](1)
-  implicit val syc = Sync[IO]
+  implicit val semaphore    = Semaphore[IO](1)
+  implicit val syc          = Sync[IO]
 
   class Fixture {
     val config128 = new Config(
@@ -50,13 +50,14 @@ class InMemoryBlockSpec extends BaseSpec {
       bloomFilterHashes = 0,
       footerSize = 0
     )
-    val random = new Random()
-    val rangeF = new RangeF[IO]
-    val inmemoryF = new InMemoryCacheF[IO](config128)
+    val random            = new Random()
+    val rangeF            = new RangeF[IO]
+    val inmemoryF         = new SearchCaches[IO](config128)
     val blockIndexSearchF = new BlockIndexSearchF[IO]()
-    val searchF    = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config128)
-    val writerF    = new BlockWriterF[IO](config128, inmemoryF, rangeF)
-    val imb128 = new InMemoryBlock[IO, XXHash64](config128, searchF, hasher, writerF) {}
+    val searchF           = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config128)
+    val writerF           = new BlockWriterF[IO](config128, inmemoryF, rangeF)
+    val inMemMapSearch    = new InMemoryMapSearchF[IO]()
+    val imb128            = new InMemoryBlock[IO, XXHash64](config128, searchF, hasher, writerF, inMemMapSearch) {}
   }
 
   it should "add key and update counters" in {
@@ -67,7 +68,7 @@ class InMemoryBlockSpec extends BaseSpec {
     val value = ByteBuffer.wrap(bv.toArray)
     val entrySize = config128.indexKeySize + (2 * Constants.LONG_SIZE_IN_BYTES)
 
-    val fb = imb128.put(key, value, semaphore).unsafeRunSync()
+    val fb = imb128.put0(key, value, semaphore).unsafeRunSync()
     assert(fb == FrozenInMemoryBlock.EMPTY
       && imb128.getCurrentPageOffSet == (2 * Constants.LONG_SIZE_IN_BYTES) + 5)
   }
@@ -79,7 +80,7 @@ class InMemoryBlockSpec extends BaseSpec {
       val bv = ByteVector.fromLong(1000, 8, ByteOrdering.BigEndian)
       val key = ByteBuffer.wrap(bv.toArray)
       val value = ByteBuffer.wrap(bv.toArray)
-      _ => imb128.put(key, value, semaphore)
+      _ => imb128.put0(key, value, semaphore)
     }.sequence.unsafeRunSync()
     assert(imb128.getCurrentPageOffSet == (2 * Constants.LONG_SIZE_IN_BYTES) + 5)
 

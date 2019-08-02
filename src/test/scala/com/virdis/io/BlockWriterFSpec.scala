@@ -33,7 +33,7 @@ import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
 import com.virdis.models._
 import com.virdis.search.{BlockIndexSearchF, IndexSearch, SearchF}
-import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
+import com.virdis.search.inmemory.{InMemoryMapSearchF, RangeF, SearchCaches}
 import com.virdis.utils.{Config, Constants, Utils}
 import net.jpountz.xxhash.XXHash64
 import org.scalacheck.Gen
@@ -91,21 +91,23 @@ class BlockWriterFSpec extends BaseSpec {
           bytesfromKey.flip()
           val genKey = imb.hasher.hash(bytesfromKey.duplicate().array())
           genKeySet.add(genKey)
-          go(imb.put(keyBytes, valueBytes, sem).unsafeRunSync(), counter + 1, genKeySet, keySet)
+          go(imb.put0(keyBytes, valueBytes, sem).unsafeRunSync(), counter + 1, genKeySet, keySet)
         }
       }
 
       go(FrozenInMemoryBlock.EMPTY, 0, new mutable.HashSet[GeneratedKey](), new mutable.HashSet[ByteBuffer]())
     }
-    val rangeF            = new RangeF[IO]
-    val inmemoryF         = new InMemoryCacheF[IO](config)
-    val blockIndexSearchF = new BlockIndexSearchF[IO]()
-    val searchF    = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config)
-    val writerF    = new BlockWriterF[IO](config, inmemoryF, rangeF)
-    val imb        = new InMemoryBlock[IO, XXHash64](config, searchF, hasher, writerF) {}
-    val searchF128 = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config128)
-    val writerF128 = new BlockWriterF[IO](config128, inmemoryF, rangeF)
-    val imb128     = new InMemoryBlock[IO, XXHash64](config128, searchF128, hasher, writerF128) {}
+    val rangeF                = new RangeF[IO]
+    val inmemoryF             = new SearchCaches[IO](config)
+    val blockIndexSearchF     = new BlockIndexSearchF[IO]()
+    val searchF               = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config)
+    val writerF               = new BlockWriterF[IO](config, inmemoryF, rangeF)
+    val inmemoryMapSearch     = new InMemoryMapSearchF[IO]()
+    val imb                   = new InMemoryBlock[IO, XXHash64](config, searchF, hasher, writerF, inmemoryMapSearch) {}
+    val searchF128            = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config128)
+    val writerF128            = new BlockWriterF[IO](config128, inmemoryF, rangeF)
+    val inmemoryMapSearch128  = new InMemoryMapSearchF[IO]()
+    val imb128                = new InMemoryBlock[IO, XXHash64](config128, searchF128, hasher, writerF128, inmemoryMapSearch128) {}
 
     def frozenMapWithRandomData(
                                  imb: InMemoryBlock[IO, XXHash64],
@@ -174,6 +176,16 @@ class BlockWriterFSpec extends BaseSpec {
       flag &&= set.contains(gk)
     }
     assert(flag)
+  }
+  it should "add map to InMemorySearchMap" in {
+    val f = new Fixture
+    import f._
+    val (fimb, set, _) = frozenMapForIndex(imb, semaphore)
+    val length = inmemoryMapSearch.internal.flatMap {
+      ref =>
+        ref.get.map(_.length)
+    }.unsafeRunSync()
+    assert(length == 2)
   }
   it should "build Block from FrozenInMemoryBlock, should build PageAlignedDataBuffer" in {
     val f = new Fixture
@@ -245,14 +257,14 @@ class BlockWriterFSpec extends BaseSpec {
     val f = new Fixture
     import f._
     val (bwr, cfg) = buildBlockWriterResult
-    val rangeF = new RangeF[IO]
-
-    val inmemoryF = new InMemoryCacheF[IO](cfg)
+    val rangeF            = new RangeF[IO]
+    val inmemoryF         = new SearchCaches[IO](cfg)
     val blockIndexSearchF = new BlockIndexSearchF[IO]()
-    val searchF    = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, cfg)
-    val writerF    = new BlockWriterF[IO](cfg, inmemoryF, rangeF)
-    val imb = new InMemoryBlock[IO, XXHash64](cfg, searchF, hasher, writerF) {}
-    val fileName = writerF.write(bwr).unsafeRunSync()
+    val searchF           = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, cfg)
+    val writerF           = new BlockWriterF[IO](cfg, inmemoryF, rangeF)
+    val inmemoryMapSearch = new InMemoryMapSearchF[IO]()
+    val imb               = new InMemoryBlock[IO, XXHash64](cfg, searchF, hasher, writerF, inmemoryMapSearch) {}
+    val fileName          = writerF.write(bwr).unsafeRunSync()
     println(s"FileName=${fileName}")
     val rafAccess = new RandomAccessFile(cfg.dataDirectory+"/"+fileName, "rw")
     val channel = rafAccess.getChannel.map(FileChannel.MapMode.READ_WRITE, cfg.blockSize - Constants.FOOTER_SIZE, Constants.FOOTER_SIZE)
@@ -269,8 +281,6 @@ class BlockWriterFSpec extends BaseSpec {
       bwr.underlying.buffer.equals(dataBuffer)
         && bwr.indexByteBuffer.underlying.equals(indexBB)
     )
-
-    assert(true)
   }
 }
 

@@ -28,7 +28,7 @@ import com.virdis.hashing.Hasher
 import com.virdis.inmemory.InMemoryBlock
 import com.virdis.io.BlockWriterF
 import com.virdis.models._
-import com.virdis.search.inmemory.{InMemoryCacheF, RangeF}
+import com.virdis.search.inmemory.{InMemoryMapSearchF, RangeF, SearchCaches}
 import com.virdis.utils.{Config, Constants}
 import net.jpountz.xxhash.XXHash64
 import scodec.bits.{BitVector, ByteOrdering, ByteVector}
@@ -52,14 +52,15 @@ class BlockIndexSearchFSpec extends BaseSpec {
       bloomFilterHashes = 0,
       footerSize = 0
     )
-    val random = new Random()
-    val rangeF = new RangeF[IO]
-    val inmemoryF = new InMemoryCacheF[IO](config128)
-    val blockIndexSearchF = new BlockIndexSearchF[IO]()
-    val searchF    = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config128)
-    val writerF    = new BlockWriterF[IO](config128, inmemoryF, rangeF)
-    val imb128     = new InMemoryBlock[IO, XXHash64](config128, searchF, hasher, writerF) {}
-    val bis        = new BlockIndexSearchF[IO]()
+    val random             = new Random()
+    val rangeF             = new RangeF[IO]
+    val inmemoryF          = new SearchCaches[IO](config128)
+    val blockIndexSearchF  = new BlockIndexSearchF[IO]()
+    val searchF            = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config128)
+    val writerF            = new BlockWriterF[IO](config128, inmemoryF, rangeF)
+    val inMemMapSerach     = new InMemoryMapSearchF[IO]()
+    val imb128             = new InMemoryBlock[IO, XXHash64](config128, searchF, hasher, writerF, inMemMapSerach) {}
+    val bis                = new BlockIndexSearchF[IO]()
 
     def frozenMapForIndex(
                            imb: InMemoryBlock[IO, XXHash64],
@@ -78,7 +79,7 @@ class BlockIndexSearchFSpec extends BaseSpec {
           keySet.add(ByteBuffer.wrap(kbv.toByteArray))
           val genKey = imb.hasher.hash(kbv.toByteArray)
           genKeySet.add(genKey)
-          go(imb.put(ByteBuffer.wrap(kbv.toByteArray),
+          go(imb.put0(ByteBuffer.wrap(kbv.toByteArray),
             ByteBuffer.wrap(kbv.toByteArray), sem).unsafeRunSync(), counter + 1, genKeySet, keySet, genKey)
         }
       }
