@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import cats.effect._
 import cats.effect.concurrent.Semaphore
 import com.virdis.hashing.Hasher
-import com.virdis.models.{FrozenInMemoryBlock, KeyByteVector, PayloadBuffer, ValueByteVector}
+import com.virdis.models.{ArKiResult, FrozenInMemoryBlock, KeyByteVector, PayloadBuffer, ValueByteVector}
 import com.virdis.utils.Config
 import cats.implicits._
 import com.virdis.io.BlockWriter
@@ -164,7 +164,18 @@ abstract class InMemoryBlock[F[_], Hash](
   }
 
   final def get(key: ByteBuffer): F[Search.Result] = {
-    search.get(key.array())
+    val generatedKey = hasher.hash(key.array())
+    inMemoryMapSearchMap.searchKey(generatedKey.underlying).flatMap {
+      optPayLoadBuffer =>
+        optPayLoadBuffer.map {
+          payloadBuffer =>
+            val (k,v) = PayloadBuffer.toKeyValueByteVector(payloadBuffer.underlying)
+            val result: Search.Result = Right((k.toArray,  v.toArray))
+            F.delay(result)
+        }.getOrElse {
+          search.get(generatedKey)
+        }
+    }
   }
 }
 

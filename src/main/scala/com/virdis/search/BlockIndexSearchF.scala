@@ -39,19 +39,19 @@ final class BlockIndexSearchF[F[_]](implicit F: Sync[F]) extends IndexSearch[F] 
     var hi = end - 1
     var midValue = -1L
     while(lo <= hi) {
-        println(s"Buffer Low=${lo} Buffer High=${hi}")
+   //     println(s"Buffer Low=${lo} Buffer High=${hi}")
       val mid = (hi + lo) / 2
-       println(s"Buffer Mid=${mid}")
+     //  println(s"Buffer Mid=${mid}")
       val skip     = mid * skipKeySize
       val midValue = searchBuffer.getLong(skip)
       val page     = searchBuffer.getInt(skip + 8)
       val offSet   = searchBuffer.getInt(skip + 8 + 4)
-      println(s"MidValue=${midValue}")
+     // println(s"MidValue=${midValue}")
       if (midValue < searchKey) {
-        println("Search Key Bigger")
+       // println("Search Key Bigger")
         lo = mid + 1
       } else if (midValue > searchKey) {
-         println("Search Key Smaller")
+       //  println("Search Key Smaller")
         hi = mid - 1
       } else {
         return SearchResult(

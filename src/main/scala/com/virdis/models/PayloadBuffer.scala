@@ -35,7 +35,7 @@ sealed abstract case class PayloadBuffer(underlying: ByteVector)
 
 object PayloadBuffer {
 
-  def fromKeyValue(key: KeyByteVector, value: ValueByteVector): PayloadBuffer = {
+  final def fromKeyValue(key: KeyByteVector, value: ValueByteVector): PayloadBuffer = {
     val keySizeBytesVector   = ByteVector.fromShort(s = key.size.toShort, ordering = ByteOrdering.BigEndian)
     val valueSizeBytesVector = ByteVector.fromShort(s = value.size.toShort, ordering = ByteOrdering.BigEndian)
     val isDeleted            = ByteVector.fromByte(Constants.FALSE_BYTES)
@@ -44,9 +44,20 @@ object PayloadBuffer {
     ){}
   }
 
-  def fromBuffer(buff: ByteBuffer): PayloadBuffer = {
+  final def fromBuffer(buff: ByteBuffer): PayloadBuffer = {
     buff.flip()
     new PayloadBuffer(ByteVector.view(buff)) {}
+  }
+
+  final def toKeyValueByteVector(underlying: ByteVector) = {
+    val byteBuffer = underlying.toByteBuffer
+    val keySizeInShort =  byteBuffer.getShort
+    val keyArray = new Array[Byte](keySizeInShort)
+    byteBuffer.get(keyArray)
+    val valueSizeInShort = byteBuffer.getShort
+    val valueArrays = new Array[Byte](valueSizeInShort)
+    byteBuffer.get(valueArrays)
+    (ByteVector.view(keyArray), ByteVector.view(valueArrays))
   }
 }
 

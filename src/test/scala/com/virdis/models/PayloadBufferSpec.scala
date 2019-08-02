@@ -1,3 +1,4 @@
+
 /*
  *
  *     Copyright (c) 2019 Sandeep Virdi
@@ -16,15 +17,19 @@
  *
  */
 
-package com.virdis.search
+package com.virdis.models
 
-import com.virdis.models.{ArKiResult, GeneratedKey}
+import com.virdis.BaseSpec
+import com.virdis.utils.Constants
+import scodec.bits.{ByteOrdering, ByteVector}
 
-trait Search[F[_]] {
-  def get(key: GeneratedKey): F[Search.Result]
-}
-
-object Search {
-  type KVBuffers = (Array[Byte], Array[Byte])
-  type Result = Either[ArKiResult, KVBuffers]
+class PayloadBufferSpec extends BaseSpec {
+  it should "return key/value byte vectors" in {
+    val b = ByteVector.fromShort('a', Constants.SHORT_SIZE_IN_BYTES, ordering = ByteOrdering.BigEndian)
+    val kBV = KeyByteVector(b, b.size.toInt)
+    val vBV = ValueByteVector(b, b.size.toInt)
+    val payloadBuffer = PayloadBuffer.fromKeyValue(kBV, vBV)
+    val (keyBV, valueBV) = PayloadBuffer.toKeyValueByteVector(payloadBuffer.underlying)
+    assert(keyBV == kBV.underlying && valueBV == vBV.underlying)
+  }
 }

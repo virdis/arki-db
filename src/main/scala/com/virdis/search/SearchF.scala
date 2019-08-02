@@ -37,32 +37,29 @@ final class SearchF[F[_]](
   final val hasher: Hasher[XXHash64]  = Hasher.xxhash64
   final val bloomFilter: BloomFilterF = new BloomFilterF(config.bloomFilterBits, config.bloomFilterHashes)
   // search
-  final def get(key: Array[Byte]): F[Result] = {
-    F.flatMap(F.delay(hasher.hash(key))) {
-      genKey =>
-        F.flatMap(rangeF.get(genKey.underlying)) {
-          optRangeValue =>
-            optRangeValue.map {
-              rangeV =>
-                F.flatMap(searchBloomFilter(genKey, rangeV)) {
-                  _.fold[F[Result]](
-                    err => F.delay(Left[ArKiResult, KVBuffers](err)),
-                    cacheKey => {
-                      F.flatMap(searchIndex(genKey, rangeV.footer, cacheKey)) {
-                        searchResult =>
-                            F.ifM(F.delay(searchResult == SearchResult.NOT_FOUND))(
-                              F.delay(Left[ArKiResult, KVBuffers](IndexError)) ,
-                              F.flatMap(searchData(searchResult, cacheKey)) {
-                                res =>
-                                  F.delay(Right[ArKiResult, KVBuffers](res))
-                              }
-                            )
-                      }
-                    }
-                  )
+  final def get(key: GeneratedKey): F[Result] = {
+    F.flatMap(rangeF.get(key.underlying)) {
+      optRangeValue =>
+        optRangeValue.map {
+          rangeV =>
+            F.flatMap(searchBloomFilter(key, rangeV)) {
+              _.fold[F[Result]](
+                err => F.delay(Left[ArKiResult, KVBuffers](err)),
+                cacheKey => {
+                  F.flatMap(searchIndex(key, rangeV.footer, cacheKey)) {
+                    searchResult =>
+                      F.ifM(F.delay(searchResult == SearchResult.NOT_FOUND))(
+                        F.delay(Left[ArKiResult, KVBuffers](IndexError)),
+                        F.flatMap(searchData(searchResult, cacheKey)) {
+                          res =>
+                            F.delay(Right[ArKiResult, KVBuffers](res))
+                        }
+                      )
+                  }
                 }
-            }.getOrElse(F.delay[Result](Left[ArKiResult, KVBuffers](CacheKeyNotFound)))
-        }
+              )
+            }
+        }.getOrElse(F.delay[Result](Left[ArKiResult, KVBuffers](CacheKeyNotFound)))
     }
   }
 
