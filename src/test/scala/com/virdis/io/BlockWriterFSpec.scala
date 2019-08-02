@@ -103,11 +103,11 @@ class BlockWriterFSpec extends BaseSpec {
     val searchF               = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config)
     val writerF               = new BlockWriterF[IO](config, inmemoryF, rangeF)
     val inmemoryMapSearch     = new InMemoryMapSearchF[IO]()
-    val imb                   = new InMemoryBlock[IO, XXHash64](config, searchF, hasher, writerF, inmemoryMapSearch) {}
+    val imb                   = new InMemoryBlock[IO, XXHash64](config, searchF, hasher, writerF, inmemoryMapSearch)
     val searchF128            = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, config128)
     val writerF128            = new BlockWriterF[IO](config128, inmemoryF, rangeF)
     val inmemoryMapSearch128  = new InMemoryMapSearchF[IO]()
-    val imb128                = new InMemoryBlock[IO, XXHash64](config128, searchF128, hasher, writerF128, inmemoryMapSearch128) {}
+    val imb128                = new InMemoryBlock[IO, XXHash64](config128, searchF128, hasher, writerF128, inmemoryMapSearch128)
 
     def frozenMapWithRandomData(
                                  imb: InMemoryBlock[IO, XXHash64],
@@ -263,7 +263,7 @@ class BlockWriterFSpec extends BaseSpec {
     val searchF           = new SearchF[IO](rangeF, inmemoryF, blockIndexSearchF, cfg)
     val writerF           = new BlockWriterF[IO](cfg, inmemoryF, rangeF)
     val inmemoryMapSearch = new InMemoryMapSearchF[IO]()
-    val imb               = new InMemoryBlock[IO, XXHash64](cfg, searchF, hasher, writerF, inmemoryMapSearch) {}
+    val imb               = new InMemoryBlock[IO, XXHash64](cfg, searchF, hasher, writerF, inmemoryMapSearch)
     val fileName          = writerF.write(bwr).unsafeRunSync()
     println(s"FileName=${fileName}")
     val rafAccess = new RandomAccessFile(cfg.dataDirectory+"/"+fileName, "rw")

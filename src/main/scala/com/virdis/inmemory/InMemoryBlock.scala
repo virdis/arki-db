@@ -29,19 +29,21 @@ import com.virdis.hashing.Hasher
 import com.virdis.models.{ArKiResult, FrozenInMemoryBlock, KeyByteVector, PayloadBuffer, ValueByteVector}
 import com.virdis.utils.Config
 import cats.implicits._
+import com.virdis.api.ArKiApi
 import com.virdis.io.BlockWriter
 import com.virdis.search.Search
 import com.virdis.search.inmemory.InMemoryMapSearch
 import com.virdis.threadpools.IOThreadFactory
 import scodec.bits.ByteVector
 
-abstract class InMemoryBlock[F[_], Hash](
+final class InMemoryBlock[F[_], Hash](
                                           val config:    Config,
                                           val search:    Search[F],
                                           val hasher:    Hasher[Hash],
                                           val writer:    BlockWriter[F],
                                           val inMemoryMapSearchMap: InMemoryMapSearch[F]
-                                  )(implicit F: Sync[F], T: Concurrent[F], C: ContextShift[F], A: Async[F]) {
+                                  )(implicit F: Sync[F], T: Concurrent[F], C: ContextShift[F], A: Async[F])
+  extends ArKiApi[F]{
   @volatile var cmap                   = new ConcurrentSkipListMap[Long, PayloadBuffer]()
   private final val currentPageOffSet  = new AtomicInteger(0)
   private final val pageCounter        = new AtomicInteger(0)

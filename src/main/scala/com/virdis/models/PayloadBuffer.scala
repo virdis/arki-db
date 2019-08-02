@@ -49,13 +49,13 @@ object PayloadBuffer {
     new PayloadBuffer(ByteVector.view(buff)) {}
   }
 
-  final def toKeyValueByteVector(underlying: ByteVector) = {
-    val byteBuffer = underlying.toByteBuffer
-    val keySizeInShort =  byteBuffer.getShort
-    val keyArray = new Array[Byte](keySizeInShort)
+  final def toKeyValueByteVector(underlying: ByteVector): (ByteVector, ByteVector) = {
+    val byteBuffer        = underlying.toByteBuffer
+    val keySizeInShort    =  byteBuffer.getShort
+    val keyArray          = new Array[Byte](keySizeInShort)
     byteBuffer.get(keyArray)
-    val valueSizeInShort = byteBuffer.getShort
-    val valueArrays = new Array[Byte](valueSizeInShort)
+    val valueSizeInShort  = byteBuffer.getShort
+    val valueArrays       = new Array[Byte](valueSizeInShort)
     byteBuffer.get(valueArrays)
     (ByteVector.view(keyArray), ByteVector.view(valueArrays))
   }
