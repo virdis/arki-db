@@ -24,7 +24,7 @@ import java.nio.{Buffer, ByteBuffer}
 import com.virdis.threadpools.IOThreadFactory._
 import cats.effect.{ContextShift, Sync}
 import Constants._
-import com.virdis.models.{Footer, Offset, Page}
+import com.virdis.models.{Footer, MaxKey, MinKey, Offset, Page}
 import cats.implicits._
 
 object Utils {
@@ -70,7 +70,10 @@ object Utils {
   }
 
   @inline final def buildKey(footer: Footer): String =
-    footer.minKey.underlying.toString + footer.maxKey.underlying.toString
+    buildKey(footer.minKey, footer.maxKey)
+
+  @inline final def buildKey(minKey: MinKey, maxKey: MaxKey): String =
+    minKey.underlying.toString +":"+ maxKey.underlying.toString
 
   @inline final def duplicateAndFlipBuffer(buffer: ByteBuffer): ByteBuffer = {
     val duplicate = buffer.duplicate()

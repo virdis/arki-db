@@ -24,12 +24,12 @@ import com.virdis.bloom.BloomFilterF
 import com.virdis.hashing.Hasher
 import com.virdis.models.{ArKiResult, BloomFilterError, CacheKeyNotFound, Footer, GeneratedKey, InMemoryRangeSearch, IndexError, SearchResult}
 import com.virdis.search.Search.{KVBuffers, Result}
-import com.virdis.search.inmemory.{SearchCaches, RangeF}
+import com.virdis.search.inmemory.{SearchCaches, RangeF, Range}
 import com.virdis.utils.{Config, Constants, Utils}
 import net.jpountz.xxhash.XXHash64
 
 final class SearchF[F[_]](
-                           rangeF:            RangeF[F],
+                           rangeF:            Range[F],
                            inmemoryF:         SearchCaches[F],
                            blockIndexSearch:  IndexSearch[F],
                            config:            Config

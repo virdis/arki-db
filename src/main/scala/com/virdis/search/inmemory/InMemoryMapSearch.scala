@@ -26,4 +26,5 @@ import com.virdis.models.PayloadBuffer
 trait InMemoryMapSearch[F[_]] {
   def putMapInBuffer(map: util.NavigableMap[Long, PayloadBuffer]): F[Unit]
   def searchKey(key: Long): F[Option[PayloadBuffer]]
+  def remove(minKey: Long, maxKey: Long): F[Unit]
 }

@@ -146,6 +146,7 @@ final class InMemoryBlock[F[_], Hash](
         val buildF: F[Unit] = for {
           fiber <- T.start(writer.build(fimb.map, fimb.totalPages))
           bwr   <- fiber.join
+          _     <- inMemoryMapSearchMap.remove(bwr.minKey.underlying, bwr.maxKey.underlying)
         } yield ()
         F.guarantee(C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(buildF))(
           Async.shift[F](IOThreadFactory.nonBlockingPool.executionContext)(A)
@@ -154,7 +155,7 @@ final class InMemoryBlock[F[_], Hash](
     )
   }
 
-  final def put(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]) = {
+  final def put(key: ByteBuffer, value: ByteBuffer, guard: F[Semaphore[F]]): F[Unit] = {
     for {
       frozenBlock <- put0(key, value, guard)
       _           <- processFrozenMemoryBlock(frozenBlock)
@@ -167,17 +168,26 @@ final class InMemoryBlock[F[_], Hash](
 
   final def get(key: ByteBuffer): F[Search.Result] = {
     val generatedKey = hasher.hash(key.array())
-    inMemoryMapSearchMap.searchKey(generatedKey.underlying).flatMap {
-      optPayLoadBuffer =>
-        optPayLoadBuffer.map {
-          payloadBuffer =>
-            val (k,v) = PayloadBuffer.toKeyValueByteVector(payloadBuffer.underlying)
-            val result: Search.Result = Right((k.toArray,  v.toArray))
-            F.delay(result)
-        }.getOrElse {
-          search.get(generatedKey)
-        }
-    }
+    val payload =  cmap.get(generatedKey.underlying)
+    F.ifM(F.delay(payload == null))(
+      {
+        val  (k, v)= PayloadBuffer.toKeyValueByteVector(payload.underlying)
+        val result: Search.Result = Right((k.toArray, v.toArray))
+        F.delay(result)
+      },
+      inMemoryMapSearchMap.searchKey(generatedKey.underlying).flatMap {
+        optPayLoadBuffer =>
+          optPayLoadBuffer.map {
+            payloadBuffer =>
+              val (k,v) = PayloadBuffer.toKeyValueByteVector(payloadBuffer.underlying)
+              val result: Search.Result = Right((k.toArray,  v.toArray))
+              F.delay(result)
+          }.getOrElse {
+            search.get(generatedKey)
+          }
+      }
+    )
+
   }
 }
 

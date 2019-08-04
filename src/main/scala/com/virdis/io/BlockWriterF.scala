@@ -109,15 +109,15 @@ final class BlockWriterF[F[_]](
 
   def writeFooter(mappedByteBuffer: MappedByteBuffer, footer: Footer, config: Config): ByteBuffer = {
     mappedByteBuffer.position(config.blockSize - Constants.FOOTER_SIZE)
-    val ts = ByteVector.fromLong(footer.timeStamp.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
-    val minKey = ByteVector.fromLong(footer.minKey.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
-    val maxKey = ByteVector.fromLong(footer.maxKey.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
-    val indexOffset = ByteVector.fromLong(footer.indexStartOffSet.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
-    val noOfKeys = ByteVector.fromInt(footer.noOfKeysInIndex.underlying, Constants.INT_SIZE_IN_BYTES, ByteOrdering.BigEndian)
-    val bfOffset = ByteVector.fromLong(footer.bfilterStartOffset.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
-    val blockNo = ByteVector.fromInt(footer.blockNumber.underlying, Constants.INT_SIZE_IN_BYTES, ByteOrdering.BigEndian)
+    val ts               = ByteVector.fromLong(footer.timeStamp.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
+    val minKey           = ByteVector.fromLong(footer.minKey.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
+    val maxKey           = ByteVector.fromLong(footer.maxKey.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
+    val indexOffset      = ByteVector.fromLong(footer.indexStartOffSet.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
+    val noOfKeys         = ByteVector.fromInt(footer.noOfKeysInIndex.underlying, Constants.INT_SIZE_IN_BYTES, ByteOrdering.BigEndian)
+    val bfOffset         = ByteVector.fromLong(footer.bfilterStartOffset.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
+    val blockNo          = ByteVector.fromInt(footer.blockNumber.underlying, Constants.INT_SIZE_IN_BYTES, ByteOrdering.BigEndian)
     val dataBufferOffset = ByteVector.fromLong(footer.dataBufferOffSet.underlying, Constants.LONG_SIZE_IN_BYTES, ByteOrdering.BigEndian)
-    val dataBufferSize = ByteVector.fromInt(footer.dataBufferSize.underlying, Constants.INT_SIZE_IN_BYTES, ByteOrdering.BigEndian)
+    val dataBufferSize   = ByteVector.fromInt(footer.dataBufferSize.underlying, Constants.INT_SIZE_IN_BYTES, ByteOrdering.BigEndian)
 
     mappedByteBuffer.put(ts.toArray)
     mappedByteBuffer.put(minKey.toArray)
@@ -178,7 +178,7 @@ final class BlockWriterF[F[_]](
   def write(blockWriterResult: BlockWriterResult): F[String] = {
     val fileF: FileF = new FileF(config)
     def makeFile(file: RandomAccessFile): Resource[F, RandomAccessFile] = Resource.fromAutoCloseable(F.delay(file))
-    def makeChannel(channel: FileChannel): Resource[F, FileChannel] = Resource.fromAutoCloseable(F.delay(channel))
+    def makeChannel(channel: FileChannel): Resource[F, FileChannel]     = Resource.fromAutoCloseable(F.delay(channel))
 
     makeFile(fileF.rFile).use {
       file =>

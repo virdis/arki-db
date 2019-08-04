@@ -60,4 +60,19 @@ final class InMemoryMapSearchF[F[_]](implicit F: Sync[F]) extends InMemoryMapSea
     }
   }
 
+  override def remove(minKey: Long, maxKey: Long): F[Unit] = {
+    F.flatMap(internal) {
+      ref =>
+        ref.modify {
+          listBuffer =>
+            val indexToBeDeleted = listBuffer.indexWhere {
+              nvMap =>
+                nvMap.firstEntry().getKey == minKey && nvMap.lastEntry().getKey == maxKey
+            }
+            var deletedMap = listBuffer.remove(indexToBeDeleted)
+            deletedMap.clear()
+            (listBuffer, deletedMap = null)
+        }
+    }
+  }
 }
