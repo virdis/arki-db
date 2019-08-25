@@ -27,7 +27,7 @@ import cats.implicits._
 import cats.effect.{Async, ContextShift, Resource, Sync}
 import com.virdis.bloom.BloomFilterF
 import com.virdis.models._
-import com.virdis.search.inmemory.{SearchCaches, RangeF}
+import com.virdis.search.inmemory.{SearchCaches}
 import com.virdis.threadpools.IOThreadFactory
 import com.virdis.utils.{Config, Constants, Utils}
 import scodec.bits.{BitVector, ByteOrdering, ByteVector}

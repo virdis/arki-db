@@ -41,7 +41,7 @@ final class InMemoryBlock[F[_], Hash](
                                           val search:    Search[F],
                                           val hasher:    Hasher[Hash],
                                           val writer:    BlockWriter[F],
-                                          val inMemoryMapSearchMap: InMemoryMapSearch[F]
+                                          val inMemoryMapSearch: InMemoryMapSearch[F]
                                   )(implicit F: Sync[F], T: Concurrent[F], C: ContextShift[F], A: Async[F])
   extends ArKiApi[F]{
   @volatile var cmap                   = new ConcurrentSkipListMap[Long, PayloadBuffer]()
@@ -114,7 +114,7 @@ final class InMemoryBlock[F[_], Hash](
           println(s"RESET COUNTERs CMAP=${cmap.size()} MaxAllowedBytes=${maxAllowedBytes.get()} PageCounter=${pageCounter.get()} CurrentPageOff=${currentPageOffSet.get()}")
           semaphore.withPermit {
             val block = FrozenInMemoryBlock(cmap, pageCounter.get() + 1)
-            val addMap: F[Unit] = inMemoryMapSearchMap.putMapInBuffer(cmap)
+            val addMap: F[Unit] = inMemoryMapSearch.putMapInBuffer(cmap)
             pageCounter.set(0)
             currentPageOffSet.set(0)
             maxAllowedBytes.set(0)
@@ -146,7 +146,7 @@ final class InMemoryBlock[F[_], Hash](
         val buildF: F[Unit] = for {
           fiber <- T.start(writer.build(fimb.map, fimb.totalPages))
           bwr   <- fiber.join
-          _     <- inMemoryMapSearchMap.remove(bwr.minKey.underlying, bwr.maxKey.underlying)
+          _     <- inMemoryMapSearch.remove(bwr.minKey.underlying, bwr.maxKey.underlying)
         } yield ()
         F.guarantee(C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(buildF))(
           Async.shift[F](IOThreadFactory.nonBlockingPool.executionContext)(A)
@@ -166,6 +166,19 @@ final class InMemoryBlock[F[_], Hash](
     (KeyByteVector(ByteVector.view(k), k.capacity()), ValueByteVector(ByteVector.view(v), v.capacity()))
   }
 
+  /**
+    * Read/Search Path
+    *             |-------------------------------|
+    * Request --> |   Memory Search               |
+    *             | 1. SkipListSearch             |
+    *             | 2. InMemoryMapSearch          |
+    *             |-------------------------------|
+    *
+    *
+    *
+    * @param key
+    * @return
+    */
   final def get(key: ByteBuffer): F[Search.Result] = {
     val generatedKey = hasher.hash(key.array())
     val payload =  cmap.get(generatedKey.underlying)
@@ -175,7 +188,7 @@ final class InMemoryBlock[F[_], Hash](
         val result: Search.Result = Right((k.toArray, v.toArray))
         F.delay(result)
       },
-      inMemoryMapSearchMap.searchKey(generatedKey.underlying).flatMap {
+      inMemoryMapSearch.searchKey(generatedKey.underlying).flatMap {
         optPayLoadBuffer =>
           optPayLoadBuffer.map {
             payloadBuffer =>

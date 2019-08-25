@@ -24,6 +24,7 @@ import java.util
 import com.virdis.models.PayloadBuffer
 
 trait InMemoryMapSearch[F[_]] {
+  // TODO this is not required, if we refactor the design to use min,max key from Map to enforce size
   def putMapInBuffer(map: util.NavigableMap[Long, PayloadBuffer]): F[Unit]
   def searchKey(key: Long): F[Option[PayloadBuffer]]
   def remove(minKey: Long, maxKey: Long): F[Unit]

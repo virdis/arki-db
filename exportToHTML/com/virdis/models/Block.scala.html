@@ -1,0 +1,99 @@
+<html>
+<head>
+<title>Block.scala</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #000000;}
+.s1 { color: #808080; font-style: italic;}
+.s2 { color: #000080; font-weight: bold;}
+.s3 { color: #521114; font-style: italic;}
+</style>
+</head>
+<body bgcolor="#ffffff">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#c0c0c0" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Block.scala</font>
+</center></td></tr></table>
+<pre>
+<span class="s1">/* 
+ * 
+ *     Copyright (c) 2019 Sandeep Virdi 
+ * 
+ *    Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); 
+ *    you may not use this file except in compliance with the License. 
+ *    You may obtain a copy of the License at 
+ * 
+ *        http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ *    Unless required by applicable law or agreed to in writing, software 
+ *    distributed under the License is distributed on an &quot;AS IS&quot; BASIS, 
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+ *    See the License for the specific language governing permissions and 
+ *    limitations under the License. 
+ * 
+ */</span>
+
+<span class="s2">package </span>com.virdis.models
+
+<span class="s2">import </span>java.nio.ByteBuffer
+
+<span class="s2">import </span>cats.effect.{ContextShift, Sync}
+<span class="s2">import </span>com.virdis.utils.Utils
+
+<span class="s3">/**</span>
+  <span class="s3">*                      Block Design:Default size 64 MB</span>
+  <span class="s3">*              |--------------------------------------------------|</span>
+  <span class="s3">*              | DataByteBuffer - stores payload in               |</span>
+  <span class="s3">*              |                  page aligned data block.        |</span>
+  <span class="s3">*              |                  Default size of data block      |</span>
+  <span class="s3">*              |                  4096 bytes.                     |</span>
+  <span class="s3">*              |--------------------------------------------------|</span>
+  <span class="s3">*              | Index          - stores key, page and offset.    |</span>
+  <span class="s3">*              |                  page represents the numerical   |</span>
+  <span class="s3">*              |                  value of the page aligned data  |</span>
+  <span class="s3">*              |                  block, offset represents the    |</span>
+  <span class="s3">*              |                  index of the data in the page.  |</span>
+  <span class="s3">*              |--------------------------------------------------|</span>
+  <span class="s3">*              | BloomFilter    - use to check if the key is      |</span>
+  <span class="s3">*              |                  present in the block.           |</span>
+  <span class="s3">*              |--------------------------------------------------|</span>
+  <span class="s3">*              | Footer                                           |</span>
+  <span class="s3">*              |                                                  |</span>
+  <span class="s3">*              |  ----------------------------------------------  |</span>
+  <span class="s3">*              | | a |  b |  d  |  e |  f |  g  |  h |  i |  j  | |</span>
+  <span class="s3">*              |  ----------------------------------------------  |</span>
+  <span class="s3">*              |  a - Timestamp (creation time)                   |</span>
+  <span class="s3">*              |  b - MinKey (smallest key in the block)          |</span>
+  <span class="s3">*              |  c - MaxKey (largest key in the block)           |</span>
+  <span class="s3">*              |  d - DataBufferOffset (offset in the block where |</span>
+  <span class="s3">*              |      DataBuffer is written)                      |</span>
+  <span class="s3">*              |  e - DataBufferSize (size of DataBuffer in bytes)|</span>
+  <span class="s3">*              |  f - IndexStartOffset (offset in the block where |</span>
+  <span class="s3">*              |      Index is written)                           |</span>
+  <span class="s3">*              |  g - NoOfKeysInIndex (number of keys in index)   |</span>
+  <span class="s3">*              |  h - BloomFilterOffset (offset in the block where|</span>
+  <span class="s3">*              |      bloomfilter is written)                     |</span>
+  <span class="s3">*              |  i - BlockNumber (block number in the file)      |</span>
+  <span class="s3">*               --------------------------------------------------</span>
+  <span class="s3">*</span>
+  <span class="s3">*/</span>
+
+<span class="s2">final case class </span>Block(
+                data:  DataByteBuffer,
+                index: IndexByteBuffer,
+                bloomFilter: ByteBuffer,
+                footer: Footer
+                ) {
+
+  <span class="s2">def </span>clean[F[_]]()(<span class="s2">implicit </span>F: Sync[F],
+                    Cs: ContextShift[F]): F[Unit] = {
+    Utils.freeDirectBuffer[F](data.underlying)(F, Cs)
+    Utils.freeDirectBuffer[F](index.underlying)(F, Cs)
+    Utils.freeDirectBuffer[F](bloomFilter)(F, Cs)
+  }
+
+}
+</pre>
+</body>
+</html>
