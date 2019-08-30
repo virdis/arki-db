@@ -170,19 +170,17 @@ final class InMemoryBlock[F[_], Hash](
     * Read/Search Path
     *             |-------------------------------|
     * Request --> |   Memory Search               |
-    *             | 1. SkipListSearch             |
+    *             | 1. SkipListMapSearch          |
     *             | 2. InMemoryMapSearch          |
     *             |-------------------------------|
-    *
-    *
     *
     * @param key
     * @return
     */
   final def get(key: ByteBuffer): F[Search.Result] = {
     val generatedKey = hasher.hash(key.array())
-    val payload =  cmap.get(generatedKey.underlying)
-    F.ifM(F.delay(payload == null))(
+    val payload =  cmap.get(generatedKey.underlying) // TODO lift into F
+    F.ifM(F.delay(payload != null))(
       {
         val  (k, v)= PayloadBuffer.toKeyValueByteVector(payload.underlying)
         val result: Search.Result = Right((k.toArray, v.toArray))

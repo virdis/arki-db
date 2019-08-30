@@ -63,7 +63,7 @@ final class SearchF[F[_]](
     }
   }
 
-  def searchBloomFilter(generatedKey: GeneratedKey, rangeFValue: InMemoryRangeSearch): F[Either[ArKiResult, String]] = {
+  final def searchBloomFilter(generatedKey: GeneratedKey, rangeFValue: InMemoryRangeSearch): F[Either[ArKiResult, String]] = {
     F.flatMap(F.delay(Utils.buildKey(rangeFValue.footer))) {
       key =>
         F.flatMap(inmemoryF.bloomFilterCache.get(key, SearchCaches.defaultBFilterFetch)) {
@@ -76,7 +76,7 @@ final class SearchF[F[_]](
     }
   }
 
-  def searchIndex(generatedKey: GeneratedKey, footer: Footer, key: String): F[SearchResult] = {
+  final def searchIndex(generatedKey: GeneratedKey, footer: Footer, key: String): F[SearchResult] = {
     F.flatMap(inmemoryF.indexCache.get(key, SearchCaches.defaultBBCacheFetch)) {
       indexByteBuff =>
         F.flatMap(F.delay(Utils.duplicateAndFlipBuffer(indexByteBuff))) {
@@ -87,7 +87,7 @@ final class SearchF[F[_]](
     }
   }
 
-  def searchData(searchResult: SearchResult, key: String): F[KVBuffers] = {
+  final def searchData(searchResult: SearchResult, key: String): F[KVBuffers] = {
     F.flatMap(inmemoryF.dataCache.get(key, SearchCaches.defaultBBCacheFetch)) {
       dataByteBuff =>
         F.flatMap(F.delay(Utils.duplicateAndFlipBuffer(dataByteBuff))) {
