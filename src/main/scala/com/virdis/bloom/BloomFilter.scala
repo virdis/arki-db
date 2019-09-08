@@ -28,7 +28,7 @@ trait BloomFilter {
   final val hasher = Hasher.xxhash64
   def bits: Int
   def hashes: Int
-  val bloomfilter: Array[Int] = new Array[Int](bits)
+  val bloomfilter: Array[Int] = new Array[Int](bits) // TODO change Int -> Bool
 
   @inline final def genHashes(generatedKey: GeneratedKey): (GeneratedKey, GeneratedKey) = {
     val hash1 = hasher.hash(BitVector.fromLong(generatedKey.underlying, 64, ByteOrdering.BigEndian).toByteArray)

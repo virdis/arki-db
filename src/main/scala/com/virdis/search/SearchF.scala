@@ -33,7 +33,7 @@ final class SearchF[F[_]](
                            inmemoryF:         SearchCaches[F],
                            blockIndexSearch:  IndexSearch[F],
                            config:            Config
-                         )(implicit F: Sync[F], C: ContextShift[F]) extends Search[F] {
+                         )(implicit F: Sync[F]) extends Search[F] {
   final val hasher: Hasher[XXHash64]  = Hasher.xxhash64
   final val bloomFilter: BloomFilterF = new BloomFilterF(config.bloomFilterBits, config.bloomFilterHashes)
   // search

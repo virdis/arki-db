@@ -45,6 +45,7 @@ final class InMemoryBlock[F[_], Hash](
                                   )(implicit F: Sync[F], T: Concurrent[F], C: ContextShift[F], A: Async[F])
   extends ArKiApi[F]{
   @volatile var cmap                   = new ConcurrentSkipListMap[Long, PayloadBuffer]()
+  // internal state: counters to create SSTables (String Sorted Tables)
   private final val currentPageOffSet  = new AtomicInteger(0)
   private final val pageCounter        = new AtomicInteger(0)
   private final val maxAllowedBytes    = new AtomicInteger(0)
@@ -146,6 +147,8 @@ final class InMemoryBlock[F[_], Hash](
         val buildF: F[Unit] = for {
           fiber <- T.start(writer.build(fimb.map, fimb.totalPages))
           bwr   <- fiber.join
+          wFib  <- T.start(writer.write(bwr))
+          _     <- wFib.join
           _     <- inMemoryMapSearch.remove(bwr.minKey.underlying, bwr.maxKey.underlying)
         } yield ()
         F.guarantee(C.evalOn(IOThreadFactory.blockingIOPool.executionContext)(buildF))(

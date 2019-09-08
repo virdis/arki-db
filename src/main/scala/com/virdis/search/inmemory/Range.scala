@@ -21,6 +21,6 @@ package com.virdis.search.inmemory
 import com.virdis.models.InMemoryRangeSearch
 
 trait Range[F[_]] {
-  def add(inmemorysearch: InMemoryRangeSearch): F[Unit]
+  def put(ims: InMemoryRangeSearch): F[Unit]
   def get(key: Long): F[Option[InMemoryRangeSearch]]
 }

@@ -27,17 +27,17 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import cats.collections.{Range => CatsRange}
 // TODO replace this with Interval Tree
-final class RangeF[F[_]]()(implicit F:  Sync[F], C: Concurrent[F]) extends Range[F] {
+final class RangeF[F[_]]()(implicit F:  Sync[F]) extends Range[F] {
 
   // order should be recent to old
   private final val refListBuffer = Ref.of[F, mutable.ListBuffer[InMemoryRangeSearch]](ListBuffer.empty)
 
-  override final def add(inMemoryRangeSearch: InMemoryRangeSearch): F[Unit] = {
+  override final def put(ims: InMemoryRangeSearch): F[Unit] = {
     F.flatMap(refListBuffer) {
       rlb =>
        rlb.modify {
          lb =>
-           lb.prepend(inMemoryRangeSearch)
+           lb.prepend(ims)
            (lb, F.unit)
        }
     }

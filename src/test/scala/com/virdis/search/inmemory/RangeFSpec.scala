@@ -76,7 +76,7 @@ class RangeFSpec extends BaseSpec {
       i =>
         val footer = buildFooter
         buffer.append(footer)
-        rangeF.add(InMemoryRangeSearch(CatsRange[Long](footer.minKey.underlying,
+        rangeF.put(InMemoryRangeSearch(CatsRange[Long](footer.minKey.underlying,
           footer.maxKey.underlying), "a", footer)).unsafeRunSync()
     }
     val res = buffer.toList.map {
@@ -94,7 +94,7 @@ class RangeFSpec extends BaseSpec {
         val (footer, searchKey) = buildRange
         buffer.append(footer)
         searchKeyBuffer.append(searchKey)
-        rangeF.add(InMemoryRangeSearch(CatsRange[Long](footer.minKey.underlying, footer.maxKey.underlying) ,
+        rangeF.put(InMemoryRangeSearch(CatsRange[Long](footer.minKey.underlying, footer.maxKey.underlying) ,
           "b", footer)).unsafeRunSync()
     }
     val res = searchKeyBuffer.toList.map {

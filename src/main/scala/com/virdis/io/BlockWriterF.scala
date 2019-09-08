@@ -167,7 +167,7 @@ final class BlockWriterF[F[_]](
   def updateCaches(bwr: BlockWriterResult, footer: Footer, fileName: String): F[Unit] = {
     val key = Utils.buildKey(footer)
     val rangeFValue = InMemoryRangeSearch(CatsRange(footer.minKey.underlying, footer.maxKey.underlying), fileName, footer)
-    range.add(rangeFValue)
+    range.put(rangeFValue)
     inmemoryF.bloomFilterCache.put(key, bwr.bloomFilter)
     inmemoryF.indexCache.put(key, Utils.duplicateAndFlipBuffer(bwr.indexByteBuffer.underlying))
     inmemoryF.dataCache.put(key, Utils.duplicateAndFlipBuffer(bwr.underlying.buffer))
@@ -176,7 +176,7 @@ final class BlockWriterF[F[_]](
 
 
   def write(blockWriterResult: BlockWriterResult): F[String] = {
-    val fileF: FileF = new FileF(config)
+    val fileF: FileF = new FileF(config) // TODO Create File Watcher Service
     def makeFile(file: RandomAccessFile): Resource[F, RandomAccessFile] = Resource.fromAutoCloseable(F.delay(file))
     def makeChannel(channel: FileChannel): Resource[F, FileChannel]     = Resource.fromAutoCloseable(F.delay(channel))
 
