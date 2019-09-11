@@ -37,7 +37,7 @@ import com.virdis.search.inmemory._
 final class BlockWriterF[F[_]](
                                 config:  Config,
                                 inmemoryF: SearchCaches[F],
-                                range: Range[F]
+                                rangeF: Range[F]
                              )(implicit F: Sync[F], C: ContextShift[F], A: Async[F]) extends BlockWriter[F] {
 
   type Position = Int
@@ -167,7 +167,7 @@ final class BlockWriterF[F[_]](
   def updateCaches(bwr: BlockWriterResult, footer: Footer, fileName: String): F[Unit] = {
     val key = Utils.buildKey(footer)
     val rangeFValue = InMemoryRangeSearch(CatsRange(footer.minKey.underlying, footer.maxKey.underlying), fileName, footer)
-    range.put(rangeFValue)
+    rangeF.put(rangeFValue)
     inmemoryF.bloomFilterCache.put(key, bwr.bloomFilter)
     inmemoryF.indexCache.put(key, Utils.duplicateAndFlipBuffer(bwr.indexByteBuffer.underlying))
     inmemoryF.dataCache.put(key, Utils.duplicateAndFlipBuffer(bwr.underlying.buffer))

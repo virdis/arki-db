@@ -27,91 +27,43 @@ import scala.concurrent.ExecutionContext
 
 object UsingCatsEffect extends App {
 
-  val ec1 = ExecutionContext.fromExecutor(Executors.newCachedThreadPool(new NamedThreadFactory("ec1", true)))
-  val ec2 = ExecutionContext.fromExecutor(Executors.newCachedThreadPool(new NamedThreadFactory("ec2", true)))
-  val ec3 = Executors.newCachedThreadPool(new NamedThreadFactory("ec3", true))
+  object App1 {
+    trait Program[F[_]] {
+      def finish[A](a: => A): F[A]
 
-  val cs1 = IO.contextShift(ec1)
-  val cs2 = IO.contextShift(ec2)
+      def chain[A, B](fa: F[A], afb: A => F[B]): F[B]
 
-  val printThread = IO { println(Thread.currentThread().getName) }
-
-  val a = IO.async[Unit] { cb =>
-    ec3.submit(new Runnable {
-      override def run(): Unit = {
-        println(Thread.currentThread().getName + " (async)")
-        cb(Right(()))
-      }
-    })
-  }
-
-  def run(name: String)(th: IO[_]): Unit = {
-    println(s"-- $name --")
-    try {
-      th.unsafeRunSync()
-    } catch {
-      case e: Exception => e.printStackTrace()
+      def map[A, B](fa: F[A], ab: A => B): F[B]
     }
-    println()
-  }
+    object Program {
+      def apply[F[_]](implicit F: Program[F]): Program[F] = F
+    }
+    implicit class ProgramSyntax[F[_], A](fa: F[A]) {
+      def map[B](f: A => B)(implicit F: Program[F]): F[B] = F.map(fa, f)
+      def flatMap[B](afb: A => F[B])(implicit F: Program[F]): F[B] = F.chain(fa, afb)
+    }
+    trait Console[F[_]] {
+      def putStrLn(line: String): F[Unit]
+      def getStrLn: F[String]
+    }
+    object Console {
+      def apply[F[_]](implicit F: Console[F]): Console[F] = F
+    }
+    def putStrLn[F[_]: Console](line: String): F[Unit] = Console[F].putStrLn(line)
+    def getStrLn[F[_]: Console]: F[String] = Console[F].getStrLn
+    def finish[F[_], A](a: => A)(implicit F: Program[F]): F[A] = F.finish(a)
 
-  run("Plain") {
-    printThread
-  }
-
-  run("Shift") {
-    printThread *> IO.shift(ec1) *> printThread *> IO.shift(ec2) *> printThread
-  }
-
-  run("Shift shift") {
-    IO.shift(ec1) *> IO.shift(ec2) *> printThread
-  }
-
-  run("Eval on") {
-    printThread *> cs1.evalOn(ec2)(printThread) *> printThread
-  }
-
-  run("Eval on eval on") {
-    cs2.evalOn(ec2)(cs1.evalOn(ec1)(printThread))
-  }
-
-  run("caveat 1") {
-    val someEffect = IO.shift(ec1) *> printThread
-    printThread *> someEffect *> printThread
-  }
-
-  run("async") {
-    printThread *> a *> printThread
-  }
-
-  run("async shift") {
-    a *> IO.shift(ec1) *> printThread
-  }
-
-  run("async 2") {
-    cs1.evalOn(ec1)(a *> printThread)
-  }
-
-  val ae = IO.async[Unit] { cb =>
-    ec3.submit(new Runnable {
-      override def run(): Unit = {
-        println(Thread.currentThread().getName + " (async)")
-        cb(Left(new IllegalStateException()))
-      }
-    })
-  }
-
-  run("async error") {
-    ae.guarantee(printThread)
-  }
-
-  run("async shift error") {
-    ae.guarantee(IO.shift(ec1)).guarantee(printThread)
-  }
-
-  val nf = ae.guarantee(Async.shift(ec1)(implicitly[Async[IO]])).guarantee(printThread)
-
-  run("ae gurantee Async") {
-    nf
+    object Test {
+      def checkContinue[F[_]: Program: Console](name: String): F[Boolean] =
+        for {
+          _     <- putStrLn("Do you want to continue, " + name + "?")
+          input <- getStrLn.map(_.toLowerCase)
+          cont  <- input match {
+            case "y" => finish(true)
+            case "n" => finish(false)
+            case _   => checkContinue(name)
+          }
+        } yield cont
+    }
   }
 }
