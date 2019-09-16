@@ -22,7 +22,9 @@ import com.virdis.hashing.Hasher
 import com.virdis.models.GeneratedKey
 import scodec.bits.{BitVector, ByteOrdering, ByteVector}
 
-// https://stackoverflow.com/questions/48727173/bloom-filters-and-its-multiple-hash-functions
+/*
+  https://stackoverflow.com/questions/48727174/bloom-filters-and-its-multiple-hash-functions
+ */
 
 trait BloomFilter {
   final val hasher = Hasher.xxhash64
@@ -30,6 +32,7 @@ trait BloomFilter {
   def hashes: Int
   val bloomfilter: Array[Int] = new Array[Int](bits) // TODO change Int -> Bool
 
+  // CPU intensive !!!
   @inline final def genHashes(generatedKey: GeneratedKey): (GeneratedKey, GeneratedKey) = {
     val hash1 = hasher.hash(BitVector.fromLong(generatedKey.underlying, 64, ByteOrdering.BigEndian).toByteArray)
     val hash2 = hasher.hash(BitVector.fromLong(hash1.underlying, 64, ByteOrdering.BigEndian).toByteArray)

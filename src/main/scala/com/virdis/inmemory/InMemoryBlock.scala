@@ -60,8 +60,6 @@ final class InMemoryBlock[F[_], Hash](
           ): F[FrozenInMemoryBlock] = {
     val payloadSize      = payloadBuffer.underlying.size.toInt
     val entrySizeInBytes = config.indexKeySize + payloadSize
-    println(s"Config PageSize=${config.pageSize} BlockSize=${config.blockSize} AllowedBytes=${config.maxAllowedBlockSize}")
-    println(s"Key=${key} EntrySizeInBytes=${entrySizeInBytes} PayloadBuffer=${payloadSize}")
     F.ifM(F.delay(maxAllowedBytes.addAndGet(entrySizeInBytes) < config.maxAllowedBlockSize))(
       F.ifM(F.delay(currentPageOffSet.addAndGet(payloadSize) <= config.pageSize))(
         F.ifM(F.delay(cmap.put(key, payloadBuffer) == null))(
@@ -75,7 +73,6 @@ final class InMemoryBlock[F[_], Hash](
             resetCounters(key, payloadBuffer, guard, entrySizeInBytes, payloadSize),
             F.ifM(F.delay(cmap.put(key, payloadBuffer) == null))(
               F.suspend {
-                println(s"MAX+PAGESIZE CMAP=${cmap.size()} MaxAllowedBytes=${maxAllowedBytes.get()} PageCounter=${pageCounter.get()} CurrentPageOff=${currentPageOffSet.get()}")
                 currentPageOffSet.set(0)
                 currentPageOffSet.addAndGet(payloadSize)
                 pageCounter.incrementAndGet()
@@ -112,7 +109,6 @@ final class InMemoryBlock[F[_], Hash](
       F.flatMap(guard) {
         semaphore =>
           // latch for reassigning the block
-          println(s"RESET COUNTERs CMAP=${cmap.size()} MaxAllowedBytes=${maxAllowedBytes.get()} PageCounter=${pageCounter.get()} CurrentPageOff=${currentPageOffSet.get()}")
           semaphore.withPermit {
             val block = FrozenInMemoryBlock(cmap, pageCounter.get() + 1)
             val addMap: F[Unit] = inMemoryMapSearch.putMapInBuffer(cmap)
