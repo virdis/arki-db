@@ -44,6 +44,14 @@ final class InMemoryBlock[F[_], Hash](
                                           val inMemoryMapSearch: InMemoryMapSearch[F]
                                   )(implicit F: Sync[F], T: Concurrent[F], C: ContextShift[F], A: Async[F])
   extends ArKiApi[F]{
+
+  /**
+    * TODO - Get rid of `var`
+    * We can have just one in-memory map, we let it grow, once it is [config.blockSize]
+    * we can take the (min,max) keys and use them to build and write the block. Once done we
+    * can shrink the block. Need to make sure no new update happens in the (min,max) key
+    * range. More book keeping will be required.
+    */
   @volatile var cmap                   = new ConcurrentSkipListMap[Long, PayloadBuffer]()
   // internal state: counters to create SSTables (String Sorted Tables)
   private final val currentPageOffSet  = new AtomicInteger(0)
@@ -58,6 +66,7 @@ final class InMemoryBlock[F[_], Hash](
             payloadBuffer: PayloadBuffer,
             guard: F[Semaphore[F]]
           ): F[FrozenInMemoryBlock] = {
+
     val payloadSize      = payloadBuffer.underlying.size.toInt
     val entrySizeInBytes = config.indexKeySize + payloadSize
     F.ifM(F.delay(maxAllowedBytes.addAndGet(entrySizeInBytes) < config.maxAllowedBlockSize))(
@@ -131,6 +140,12 @@ final class InMemoryBlock[F[_], Hash](
         hasher.hash(key.array())
       }
       (k, v) = makeByteVectors(key, value)
+
+      /**
+        * [add0] is not thread safe, there are subtle bugs in it.
+        * Fix is very simple instead of passing the guard into it
+        * and using it, just wrap the [add0] method call in a semaphore ie: guard.
+        */
       fimb   <- add0(genratedKey.underlying, PayloadBuffer.fromKeyValue(k, v), guard)
     } yield fimb
 
