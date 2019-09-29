@@ -1,6 +1,6 @@
 # Ar-Ki Key Value Store
 
-### describe
+### Not intended for Production use.
 
 ### Design
 
